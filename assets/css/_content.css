@@ -1,0 +1,186 @@
+/*
+ * Shared Content Styles
+ * Loaded by both main.css (via @import) and editor (via add_editor_style)
+ */
+
+/* Fonts */
+@font-face {
+    font-family: 'Open Sans';
+    font-display: fallback;
+    font-style: normal;
+    font-weight: 400;
+    src: local('Open Sans Regular'), local('OpenSans-Regular'),
+        url('../fonts/open-sans/open-sans-v17-latin-regular.woff2') format('woff2'),
+        url('../fonts/open-sans/open-sans-v17-latin-regular.woff') format('woff');
+}
+
+@font-face {
+    font-family: "museo-sans";
+    src: url("../fonts/museo-sans/museo-sans-300.woff2") format("woff2"),
+        url("../fonts/museo-sans/museo-sans-300.woff") format("woff");
+    font-display: fallback;
+    font-style: normal;
+    font-weight: 300;
+}
+
+@font-face {
+    font-family: "museo-sans";
+    src: url("../fonts/museo-sans/museo-sans-700.woff2") format("woff2"),
+        url("../fonts/museo-sans/museo-sans-700.woff") format("woff");
+    font-display: fallback;
+    font-style: normal;
+    font-weight: 700;
+}
+
+
+/* Base Typography */
+body,
+body#tinymce {
+    font-size: 0.875rem;
+    /* 14px */
+    line-height: 1.6;
+    font-family: var(--font-primary);
+    color: var(--color-text);
+}
+
+/* Editor Specific Layout */
+body#tinymce {
+    margin: 0 auto;
+    max-width: 960px;
+}
+
+/* Headings */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-family: var(--font-primary);
+    font-size: 1.625rem;
+    line-height: 1.6;
+    font-weight: 300;
+    margin: 1em 0 0.5em;
+}
+
+h2 {
+    font-size: 1.875rem;
+    font-weight: 400;
+}
+
+h3 {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+/* Paragraphs */
+p {
+    margin: 1em 0;
+}
+
+p:first-of-type {
+    margin-top: 0;
+}
+
+/* Links */
+a {
+    color: var(--color-link);
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+a:hover {
+    color: var(--color-link-hover);
+}
+
+/* Text formatting */
+b,
+strong {
+    font-weight: 700;
+}
+
+em {
+    font-style: italic;
+}
+
+/* Lists */
+ul,
+ol {
+    margin: 1em 0;
+    padding-left: 1.5em;
+}
+
+li {
+    margin: 0.25em 0;
+}
+
+/* Images in content */
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Blockquotes */
+blockquote {
+    margin: 1em 0;
+    padding-left: 1em;
+    border-left: 3px solid var(--color-border);
+    font-style: italic;
+}
+
+/* Tables */
+.table {
+    display: table;
+}
+
+.table-row {
+    display: table-row;
+}
+
+.table-cell {
+    display: table-cell;
+}
+
+table {
+    line-height: 1.875;
+}
+
+table tr:not(:last-of-type) {
+    border-bottom: 1px solid #eee;
+}
+
+/* Right-align currency column */
+.pricing table td:last-child,
+.pricing table th:last-child {
+    text-align: right;
+}
+
+/* Total row highlighting */
+tr.total-row {
+    background-color: #f4f4f4;
+}
+
+/* Gallery layout (Shared) */
+.gallery {
+    display: grid;
+    margin: 0 0 1.75rem 0;
+    justify-content: start;
+    grid-template-columns: repeat(2, auto);
+    grid-gap: .75rem;
+}
+
+.gallery figure {
+    margin: 0;
+}
+
+.gallery-columns-3 .gallery-item {
+    width: unset;
+}
+
+.gallery-item a img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    transition: filter 0.2s ease-in;
+    backface-visibility: hidden;
+}

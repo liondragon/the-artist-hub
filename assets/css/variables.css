@@ -1,0 +1,44 @@
+:root {
+    /* Colors */
+    --color-text: #343434;
+    --color-text-dark: #333;
+    --color-link: #21759b;
+    --color-link-hover: #0f3647;
+    --color-primary: #2178c4;
+    --color-primary-hover: #1c65a6;
+    --color-white: #fff;
+    --color-border: #ddd;
+    --color-bg-light: #f4f4f4;
+
+    /* Typography */
+    --font-primary: "museo-sans", "Open Sans", Helvetica, Arial, sans-serif;
+
+    /* Layout */
+    --spacing-section: 16px 24px;
+
+    /* Extended Color Palette */
+    --color-focus: #bd2726;
+    --color-success: #068667;
+    --color-meta: #676879;
+    --color-meta-light: #737373;
+
+    /* Logo Colors */
+    --color-brand-red: #bd2927;
+    --color-brand-red-alt: #bd2726;
+
+    /* Borders & Backgrounds */
+    --color-border-light: #e7edf3;
+    --color-bg-date: #f1f4f9;
+    --color-step-inactive: #b3b3b3;
+
+    /* Utilities */
+    --color-placeholder: #888;
+    --color-selection-bg: #444444;
+
+    /* Admin / Legacy */
+    --color-admin-btn: #17a8e3;
+    --color-admin-btn-hover: #0d9ed9;
+
+    /* Layers */
+    --z-dropdown: 1000;
+}

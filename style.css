@@ -12,3 +12,651 @@
 	Requires PHP: 6.0
 	Tags: portfolio
 */
+
+/* Shared content styles - @import MUST be first */
+@import 'assets/css/normalize.css';
+@import 'assets/css/variables.css';
+@import 'assets/css/_content.css';
+
+/* CSS Variables moved to css/variables.css */
+
+/* Fonts */
+
+
+/* Fonts */
+/* Font Face Definitions */
+
+/* Elements and Layout */
+:focus {
+	outline: 2px dotted var(--color-focus);
+	outline-offset: 2px;
+}
+
+::-moz-focus-inner {
+	border: 0;
+	padding: 0
+}
+
+button {
+	background: 0;
+	margin: 0;
+	padding: 0;
+	border: none;
+	-webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+	user-select: none;
+}
+
+html {
+	font-size: 100%;
+	line-height: 1.4;
+	font-weight: 400;
+	color: var(--color-text-dark);
+}
+
+body {
+	display: flex;
+	min-height: 100vh;
+	flex-direction: column;
+	min-width: 300px;
+	margin: 0 auto;
+}
+
+body.home {
+	background: #f7f7f7 url("assets/images/img_hero_001_D_2x.png") no-repeat bottom right;
+}
+
+textarea {
+	font-family: inherit;
+}
+
+/* Note: Headings, paragraphs, links, and text formatting
+   are imported from _content.css for frontend/backend consistency */
+
+img {
+	aspect-ratio: attr(width) / attr(height);
+}
+
+.ul_reset {
+	font-size: 0;
+	list-style: none;
+	padding: 0;
+}
+
+.ul_reset li {
+	font-size: 1.25rem;
+}
+
+
+
+
+/* Page Layout and Styling */
+.inner {
+	margin: 0 auto;
+	width: 100%;
+	max-width: 1440px;
+	padding: 0 .5rem;
+}
+
+#masthead {
+	padding: .75rem 0 1.5rem;
+}
+
+#company_info {
+	display: flex;
+	flex-direction: row;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	text-align: left;
+	align-items: center;
+	align-content: stretch;
+}
+
+#logo {
+	margin: 0 0.75rem 0 0px;
+}
+
+#logo img,
+#logo svg {
+	display: block;
+	width: 275px;
+	height: auto;
+	transition: opacity 0.1s ease-out 0s;
+}
+
+#logo img:hover,
+#logo svg:hover {
+	opacity: 0.92;
+}
+
+.pageline {
+	background: #f4f4f4;
+	margin: 0 0 2rem;
+	padding: 1.75rem 0;
+	text-align: center;
+}
+
+.pageline .tagline,
+.pageline .tagline_separator {
+	color: var(--color-text-dark);
+	font-size: 1.3125rem;
+	line-height: 1.5;
+}
+
+.pageline .page-title {
+	margin: 1rem 0;
+}
+
+.pageline .page-title,
+.single .entry-title {
+	font-size: 2.875rem;
+	font-weight: 300;
+	font-family: inherit;
+	margin: 0;
+	line-height: 1.5;
+}
+
+.page_content {
+	flex: 1;
+	padding-bottom: 2rem;
+}
+
+.footer-bottom {
+	margin-top: 1em;
+	letter-spacing: 1px;
+	border-top: 1px solid #ccc;
+}
+
+.pageline {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+/* Pageline elements: natural line-height spacing */
+.pageline .page-title,
+.pageline .tagline,
+.pageline .tagline_separator {
+	margin: 0;
+}
+
+.pageline .tagline {
+	margin-top: 0.5rem;
+	line-height: 1.4;
+}
+
+.footer-bottom .inner {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	width: 100%;
+	max-width: 40em;
+}
+
+#footer .footer-bottom a,
+#footer .copyright {
+	display: inline-flex;
+	width: 100%;
+	padding: 11px 0;
+	justify-content: center;
+}
+
+.copyright,
+.terms {
+	flex: 1;
+	text-align: center;
+	padding: 0 10px;
+}
+
+.terms a {
+	display: inline-block;
+	text-decoration: none;
+}
+
+.separator {
+	padding: 0 10px;
+	color: #444;
+}
+
+#footer .footer-bottom li {
+	border-top: 1px solid #d1d1d1;
+}
+
+.archive_content .project {
+	color: inherit;
+}
+
+.archive_content .project .table-cell,
+.list_header .table-cell {
+	padding: 1px 3px;
+}
+
+.list_header {
+	font-weight: bold;
+}
+
+@media screen and (min-width: 768px) {
+	#masthead {
+		padding: .75rem 0 1.5rem;
+	}
+
+	#company_meta {
+		text-align: right;
+	}
+
+	#company_meta a {
+		background: none;
+		padding: 0;
+		border-radius: 50%;
+	}
+
+	#logo {
+		margin: 0 1.25rem 0 0px;
+	}
+
+	#logo img,
+	#logo svg {
+		width: 350px;
+	}
+}
+
+.flexbox {
+	display: flex;
+	align-items: center;
+	flex-wrap: nowrap;
+	flex-direction: row;
+}
+
+.flex-even {
+	justify-content: space-between;
+}
+
+.flex-start {
+	justify-content: flex-start;
+}
+
+.inline {
+	display: inline-block;
+}
+
+.stack .inline {
+	margin-right: 4em;
+}
+
+.stack .inline:last-child {
+	margin-right: 0;
+}
+
+.button {
+	background-color: var(--color-primary);
+	color: var(--color-white);
+	display: block;
+	border-radius: 5px;
+	text-align: center;
+	padding: 0.5em 1em;
+	margin: 0 auto;
+	transition: 0.1s;
+}
+
+.button:hover {
+	background-color: #1c65a6;
+	color: #fff;
+}
+
+.empty {
+	background-color: var(--color-white);
+	border: 1px solid var(--color-primary);
+	color: var(--color-text-dark);
+}
+
+.clickable {
+	cursor: pointer;
+	transition: 0.3s;
+}
+
+.clickable:hover {
+	transform: translate3d(0px, -8px, 0px);
+	box-shadow: rgba(0, 0, 0, 0.1) 0px 0px 20px, rgba(0, 0, 0, 0.1) 0px 0px 8px;
+	transition: 0.3s;
+}
+
+.currency {
+	color: var(--color-success);
+}
+
+.blue {
+	color: var(--color-primary);
+}
+
+/* FRONT PAGE */
+.site-header {
+	background: #fff;
+}
+
+.home .page_content {
+	padding-top: 1.25em;
+}
+
+.section-top {
+	background-color: var(--color-white);
+	padding: 16px 24px;
+	margin: 0;
+}
+
+.project-date {
+	background-color: var(--color-bg-date);
+	color: var(--color-meta);
+	font-size: 15px;
+	padding: 10px 24px;
+	margin: 0;
+}
+
+.section-tab {
+	background-color: var(--color-white);
+	padding: 16px 24px;
+	color: var(--color-text-dark);
+	border-bottom: 1px solid var(--color-border-light);
+}
+
+.standard-block {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.standard-tab {
+	padding: 1em 0;
+	border-bottom: 1px solid var(--color-border);
+}
+
+.standard-tab a {
+	text-decoration: none;
+	color: inherit;
+}
+
+.blocks {
+	display: grid;
+	grid-gap: 2rem;
+	grid-template-columns: 1fr 1fr 1fr;
+}
+
+.section-footer {
+	padding: 16px 24px;
+}
+
+#latest_projects {
+	grid-area: projects;
+}
+
+#summary {
+	grid-area: summary;
+}
+
+.container {
+	display: grid;
+	grid-gap: 1.5em;
+	grid-template-columns: 3fr 1fr;
+	grid-template-areas:
+		"summary projects"
+		"handbook projects";
+}
+
+.visually_hidden {
+	display: none !important;
+}
+
+.pricing {
+	padding-bottom: 1rem;
+	margin-bottom: 1rem;
+	border-bottom: 1px solid var(--color-border);
+	border-collapse: unset;
+}
+
+.pricing:last-child {
+	border-bottom: 0;
+}
+
+.pricing tr td:last-child {
+	width: 11ch;
+}
+
+tr {
+	padding-top: 3em;
+	text-align: left;
+	position: relative;
+}
+
+.pricing th,
+.pricing td {
+	padding-top: 0.0rem;
+}
+
+#project_status {
+	border: 1px solid var(--color-border-light);
+	border-radius: 3px;
+}
+
+.project_status_row {
+	padding: 0.85em 1em;
+	border-bottom: 1px solid var(--color-border-light);
+}
+
+.project_status_row:last-child {
+	border: 0;
+}
+
+#project_status ol {
+	display: flex;
+	justify-content: space-between;
+	overflow: hidden;
+	list-style-type: none;
+}
+
+#project_status li {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	text-align: center;
+	max-width: 25%;
+	position: relative;
+	padding-top: 20px;
+}
+
+#project_status svg {
+	fill: var(--color-step-inactive);
+	background: var(--color-white);
+	position: absolute;
+	top: 0;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 3;
+}
+
+#project_status .completed_step svg {
+	fill: #000;
+}
+
+#project_status span {
+	display: block;
+}
+
+#project_status .timeline_date {
+	font-size: 0.85rem;
+	color: var(--color-meta-light);
+}
+
+.timeline_step:first-child::after {
+	background: var(--color-white);
+	left: 0;
+	z-index: 2;
+}
+
+.timeline_step::before,
+.timeline_step::after {
+	content: "";
+	width: 2200px;
+	display: block;
+	height: 2px;
+	position: absolute;
+	top: 8.5px;
+	right: 50%;
+}
+
+/* Page-specific overrides */
+.tagline {
+	color: var(--color-text-dark);
+	margin-top: 1em;
+	text-align: center;
+}
+
+#footer .footer-bottom .inner {
+	justify-content: center;
+}
+
+/* Logo Styles (Moved from inline SVG) */
+#tfa_logo .logo-main {
+	fill: var(--color-brand-red);
+}
+
+#tfa_logo * {
+	stroke-width: 0px;
+}
+
+#tfa_logo .logo-text {
+	fill: var(--color-text);
+}
+
+#tfa_logo .logo-white {
+	fill: var(--color-white);
+}
+
+#tfa_logo .logo-accent {
+	fill: var(--color-brand-red-alt);
+}
+
+/* Print styles */
+@media print {
+	.pageline {
+		padding: 0;
+	}
+
+	.pageline .page-title {
+		font-size: 2rem;
+	}
+}
+
+/* Responsive Overrides (Mobile) */
+@media screen and (max-width: 768px) {
+	.container {
+		grid-template-columns: 1fr;
+		grid-template-areas:
+			"summary"
+			"projects"
+			"handbook";
+	}
+
+	.blocks {
+		grid-template-columns: 1fr;
+	}
+
+	#logo img,
+	#logo svg {
+		width: 200px;
+		/* Smaller logo on mobile */
+		margin: 0 auto;
+	}
+
+	.pageline {
+		padding: 1rem 0;
+	}
+
+	.pageline .page-title {
+		font-size: 2rem;
+	}
+}
+
+/* ==========================================================================
+   Quotes & Projects Templates (Single)
+   ========================================================================== */
+.single-quotes #logo,
+.single-projects #logo {
+	margin: 0 auto;
+	transform: translateX(-3%);
+	/* Optical centering: align text with title below */
+}
+
+.single-quotes .inner,
+.single-projects .inner {
+	max-width: 36em;
+	font-family: var(--font-primary);
+	font-size: 0.9rem;
+}
+
+.single-quotes table,
+.single-projects table {
+	border-collapse: collapse;
+	width: 100%;
+}
+
+.single-quotes #footer .footer-bottom,
+.single-projects #footer .footer-bottom {
+	text-align: center;
+}
+
+.single-quotes #footer .footer-bottom .inner,
+.single-projects #footer .footer-bottom .inner {
+	display: inline-flex;
+	width: auto;
+	max-width: none;
+}
+
+.single-quotes #footer .footer-bottom .copyright,
+.single-quotes #footer .footer-bottom .terms,
+.single-projects #footer .footer-bottom .copyright,
+.single-projects #footer .footer-bottom .terms {
+	flex: none;
+	width: auto;
+	white-space: nowrap;
+}
+
+@media print {
+
+	.single-quotes .pageline,
+	.single-projects .pageline {
+		padding: 0;
+	}
+
+	.single-quotes .pageline .page-title,
+	.single-projects .pageline .page-title {
+		font-size: 2rem;
+	}
+}
+
+/* ==========================================================================
+   JS Templates Dropdown
+   ========================================================================== */
+.templates-dropdown {
+	position: absolute;
+	z-index: var(--z-dropdown);
+	background: var(--color-white);
+	padding: 10px;
+	border: 1px solid var(--color-border);
+	border-radius: 5px;
+	box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.templates-dropdown li {
+	margin-bottom: 5px;
+}
+
+/* ==========================================================================
+   Components
+   ========================================================================== */
+.spinner svg path {
+	fill: var(--color-brand-red);
+}
+
+.loader-icon {
+	margin: auto;
+	display: block;
+}

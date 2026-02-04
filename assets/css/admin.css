@@ -1,0 +1,93 @@
+/*
+ * Admin Styles
+ * Styles for WordPress admin area, login page, and admin bar
+ */
+
+@import 'variables.css';
+
+/* ==========================================================================
+   Admin Bar
+   ========================================================================== */
+
+#wpadminbar {
+    opacity: 50% !important;
+    transition: 0.3s;
+}
+
+#wpadminbar:hover {
+    opacity: 100% !important;
+    transition: 0.3s;
+}
+
+#wpadminbar #wp-admin-bar-my-account.with-avatar>.ab-empty-item img,
+#wpadminbar #wp-admin-bar-my-account.with-avatar>a img {
+    background: none;
+    border: none;
+}
+
+/* Phantom Code Removed: #wp-admin-bar-wp-logo background-image (dlogo.png missing) */
+
+/* ==========================================================================
+   Admin Menu
+   ========================================================================== */
+
+#adminmenuwrap {
+    margin: 0 !important;
+}
+
+/* ==========================================================================
+   Login Page
+   ========================================================================== */
+
+body.login {
+    background-image: url('../images/bg_a.jpg');
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    background-position: center;
+    background-size: cover;
+}
+
+/* Phantom Code Removed: #login h1 a background-image (logo-round.png missing) */
+
+.login label {
+    font-size: 12px;
+    color: #555555;
+}
+
+.login input[type="text"],
+.login input[type="password"] {
+    background-color: var(--color-white);
+    border-color: var(--color-border);
+    border-radius: 4px;
+}
+
+.login .button-primary {
+    width: 120px;
+    float: right;
+    background-color: var(--color-admin-btn) !important;
+    background: var(--color-admin-btn);
+    color: var(--color-white);
+    border-radius: 4px;
+    border: 1px solid var(--color-admin-btn-hover);
+}
+
+.login .button-primary:hover {
+    background-color: var(--color-admin-btn) !important;
+    background: linear-gradient(to bottom, var(--color-admin-btn), var(--color-admin-btn-hover));
+    color: var(--color-white);
+    border-radius: 4px;
+    border: 1px solid var(--color-admin-btn-hover);
+}
+
+.login .button-primary:active {
+    background-color: var(--color-admin-btn) !important;
+    background: linear-gradient(to bottom, var(--color-admin-btn-hover), var(--color-admin-btn));
+    color: var(--color-white);
+    border-radius: 4px;
+    border: 1px solid var(--color-admin-btn-hover);
+}
+
+.login #backtoblog,
+.login #nav {
+    display: none;
+}
