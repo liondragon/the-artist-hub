@@ -70,7 +70,60 @@ function enqueue_custom_admin_js()
 {
     wp_enqueue_script('my-custom-script', get_template_directory_uri() . '/assets/js/custom-script.js', array('jquery'), filemtime(get_template_directory() . '/assets/js/custom-script.js'), true);
 
-    // Localize script to pass the template directory URL to JavaScript
-    wp_localize_script('my-custom-script', 'templateData', array('url' => get_template_directory_uri() . '/assets/templates/quotes/'));
+    // Get templates dynamically from the directory
+    $templates = get_quote_templates();
+
+    // Localize script to pass templates data to JavaScript
+    wp_localize_script('my-custom-script', 'templateData', array(
+        'url' => get_template_directory_uri() . '/assets/templates/quotes/',
+        'templates' => $templates
+    ));
 }
 add_action('admin_enqueue_scripts', 'enqueue_custom_admin_js');
+
+/**
+ * Scan templates directory and return array of templates with metadata
+ */
+function get_quote_templates()
+{
+    $templates = [];
+    $dir = get_template_directory() . '/assets/templates/quotes/';
+
+    foreach (glob($dir . '*.html') as $file) {
+        $content = file_get_contents($file);
+        $metadata = parse_template_metadata($content);
+        $filename = basename($file);
+
+        $templates[] = [
+            'file' => $filename,
+            'title' => $metadata['title'] ?? ucwords(str_replace(['_', '-'], ' ', pathinfo($file, PATHINFO_FILENAME))),
+            'description' => $metadata['description'] ?? ''
+        ];
+    }
+
+    // Sort alphabetically by title
+    usort($templates, fn($a, $b) => strcmp($a['title'], $b['title']));
+
+    return $templates;
+}
+
+/**
+ * Parse template metadata from HTML comment header
+ * 
+ * Expected format:
+ * <!--
+ * Template: Template Name
+ * Description: Template description text
+ * -->
+ */
+function parse_template_metadata($content)
+{
+    $metadata = [];
+
+    if (preg_match('/<!--\s*Template:\s*(.+?)\s*Description:\s*(.+?)\s*-->/s', $content, $matches)) {
+        $metadata['title'] = trim($matches[1]);
+        $metadata['description'] = trim($matches[2]);
+    }
+
+    return $metadata;
+}

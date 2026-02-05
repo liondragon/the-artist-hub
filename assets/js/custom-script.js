@@ -1,55 +1,90 @@
 jQuery(document).ready(function ($) {
+    var $dropdown = null;
+
+    function buildDropdownHTML() {
+        var html = '<div id="templateDropdown" class="template-dropdown">' +
+            '<div class="template-dropdown-header">Insert Template</div>' +
+            '<ul class="template-dropdown-list">';
+
+        if (templateData.templates && templateData.templates.length > 0) {
+            templateData.templates.forEach(function (t) {
+                html += '<li><a href="#" class="template-dropdown-item" data-template="' +
+                    t.file + '">' + t.title + '</a></li>';
+            });
+        } else {
+            html += '<li class="template-dropdown-empty">No templates found</li>';
+        }
+
+        html += '</ul></div>';
+        return html;
+    }
+
+    function openDropdown($button) {
+        if ($dropdown) return; // Already open
+
+        var $container = $button.closest('#wp-content-media-buttons');
+        $dropdown = $(buildDropdownHTML());
+        $container.after($dropdown);
+
+        // Bind close handlers
+        $(document).on('click.tplDropdown', handleClickOutside);
+        $(document).on('keydown.tplDropdown', handleEscape);
+    }
+
+    function closeDropdown() {
+        if (!$dropdown) return;
+
+        $dropdown.remove();
+        $dropdown = null;
+
+        $(document).off('click.tplDropdown');
+        $(document).off('keydown.tplDropdown');
+    }
+
+    function handleClickOutside(e) {
+        if (!$(e.target).closest('#my_template_button, #templateDropdown').length) {
+            closeDropdown();
+        }
+    }
+
+    function handleEscape(e) {
+        if (e.key === 'Escape') {
+            closeDropdown();
+        }
+    }
+
+    // Button click - toggle dropdown
     $(document).on('click', '#my_template_button', function (e) {
         e.preventDefault();
+        e.stopPropagation();
 
-        // Remove existing dropdown to prevent duplicates
-        $('#templateDropdown').remove();
+        if ($dropdown) {
+            closeDropdown();
+        } else {
+            openDropdown($(this));
+        }
+    });
 
-        // Create the dropdown HTML
-        var dropdownHTML = '<ul id="templateDropdown" class="templates-dropdown">' +
-            '<li><strong>Insert Template</strong></li>' +
-            '<li><a href="#" class="template-item" data-template="hardwood.html">Hardwood</a></li>' +
-            '<li><a href="#" class="template-item" data-template="garage.html">Garage</a></li>' +
-            '<li><a href="#" class="template-item" data-template="subfloor_prep.html">Subfloor Leveling</a></li>' +
-            // Add more templates as needed
-            '</ul>';
+    // Template selection
+    $(document).on('click', '.template-dropdown-item', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
 
-        $(this).after(dropdownHTML);
+        var templateFile = $(this).data('template');
+        var templateUrl = templateData.url + templateFile;
 
-        // Calculate dropdown position
-        var buttonPosition = $(this).position();
-        $('#templateDropdown').css({
-            top: buttonPosition.top + $(this).outerHeight(),
-            left: buttonPosition.left
-        });
-
-        // Close dropdown when clicking outside
-        $(document).on('click', function (e) {
-            if (!$(e.target).closest('#my_template_button, #templateDropdown').length) {
-                $('#templateDropdown').remove();
+        $.get(templateUrl, function (content) {
+            if (typeof tinyMCE !== 'undefined' && tinyMCE.activeEditor && !tinyMCE.activeEditor.isHidden()) {
+                tinyMCE.activeEditor.insertContent(content);
+            } else {
+                var $textarea = $('textarea#content');
+                $textarea.val($textarea.val() + content);
+                $textarea.trigger('change');
             }
-        });
-
-        // Template item click logic
-        $('.template-item').on('click', function (e) {
-            e.preventDefault();
-            var selectedTemplate = $(this).data('template');
-            var templateUrl = templateData.url + selectedTemplate;
-
-            // Fetch and insert the template content
-            $.get(templateUrl, function (content) {
-                if (typeof tinyMCE != 'undefined' && tinyMCE.activeEditor && !tinyMCE.activeEditor.isHidden()) {
-                    tinyMCE.activeEditor.insertContent(content);
-                } else {
-                    var textArea = $('textarea#content');
-                    textArea.val(textArea.val() + content);
-                    // Trigger change event for textarea to acknowledge the update in Gutenberg's Text mode.
-                    textArea.trigger('change');
-                }
-                $('#templateDropdown').remove();
-            }).fail(function () {
-                alert('Error: Could not load template.');
-            });
+            closeDropdown();
+        }).fail(function () {
+            alert('Error: Could not load template.');
+            closeDropdown();
         });
     });
 });
