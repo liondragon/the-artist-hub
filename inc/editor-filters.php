@@ -63,3 +63,57 @@ function the_artist_tinymce_allow_nbsp($mceInit)
     $mceInit['entity_encoding'] = 'named';
     return $mceInit;
 }
+
+/**
+ * Collapsible Sections in Editor
+ * 
+ * Enables collapsible section toggle functionality within TinyMCE editor.
+ * Sections start expanded in editor (via CSS), toggle adds/removes 'collapsed' class.
+ */
+add_filter('tiny_mce_before_init', 'tah_tinymce_collapsible_sections');
+function tah_tinymce_collapsible_sections($mceInit)
+{
+    $mceInit['setup'] = "function(editor) {
+        editor.on('init', function() {
+            var body = editor.getBody();
+            var lastToggle = 0;
+            
+            function findTrigger(el) {
+                while (el && el !== body) {
+                    if (el.classList && el.classList.contains('collapsible-trigger')) {
+                        return el;
+                    }
+                    el = el.parentElement;
+                }
+                return null;
+            }
+            
+            body.addEventListener('mouseup', function(e) {
+                var now = Date.now();
+                if (now - lastToggle < 300) return;
+                
+                var trigger = findTrigger(e.target);
+                if (!trigger) return;
+                
+                var content = trigger.nextElementSibling;
+                if (!content) return;
+                if (!content.classList || !content.classList.contains('collapsible-content')) return;
+                
+                lastToggle = now;
+                
+                // In editor: toggle 'collapsed' class (sections start expanded)
+                var isCollapsed = content.classList.contains('collapsed');
+                if (isCollapsed) {
+                    content.classList.remove('collapsed');
+                    trigger.setAttribute('aria-expanded', 'true');
+                } else {
+                    content.classList.add('collapsed');
+                    trigger.setAttribute('aria-expanded', 'false');
+                }
+                
+                e.stopPropagation();
+            });
+        });
+    }";
+    return $mceInit;
+}

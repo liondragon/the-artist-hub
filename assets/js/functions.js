@@ -201,4 +201,31 @@ document.addEventListener("DOMContentLoaded", function () {
 		e.preventDefault();
 		getPage('.post_container', '.post_container');
 	}, false);
-}); 
+});
+
+/* Collapsible Sections */
+document.addEventListener('DOMContentLoaded', function () {
+	var triggers = document.querySelectorAll('.collapsible .collapsible-trigger');
+
+	triggers.forEach(function (trigger) {
+		trigger.addEventListener('click', function () {
+			toggleCollapsible(trigger);
+		});
+
+		trigger.addEventListener('keydown', function (e) {
+			if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				toggleCollapsible(trigger);
+			}
+		});
+	});
+
+	function toggleCollapsible(trigger) {
+		var content = trigger.nextElementSibling;
+		if (!content || !content.classList.contains('collapsible-content')) return;
+
+		var isExpanded = trigger.getAttribute('aria-expanded') === 'true';
+		trigger.setAttribute('aria-expanded', !isExpanded);
+		content.classList.toggle('expanded');
+	}
+});

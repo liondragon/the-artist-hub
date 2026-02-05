@@ -184,3 +184,104 @@ tr.total-row {
     transition: filter 0.2s ease-in;
     backface-visibility: hidden;
 }
+
+/* ==========================================================================
+   Collapsible Sections
+   ========================================================================== */
+
+/* Core grid animation */
+.collapsible {
+    border-bottom: 1px solid #e4e4e4;
+    padding-bottom: 0.5em;
+    margin-bottom: 0.5em;
+}
+
+.collapsible:last-child {
+    border-bottom: none;
+}
+
+.collapsible .collapsible-content {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition: grid-template-rows 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.collapsible .collapsible-content.expanded {
+    grid-template-rows: 1fr;
+    opacity: 1;
+}
+
+/* Editor: Sections start expanded by default */
+body#tinymce .collapsible .collapsible-content {
+    grid-template-rows: 1fr;
+    opacity: 1;
+}
+
+body#tinymce .collapsible .collapsible-content.collapsed {
+    grid-template-rows: 0fr;
+    opacity: 0;
+}
+
+.collapsible .collapsible-inner {
+    overflow: hidden;
+}
+
+/* Spacing for inner content */
+.collapsible .collapsible-inner> :first-child {
+    margin-top: 1em;
+}
+
+/* Heading trigger */
+.collapsible .collapsible-trigger {
+    cursor: pointer;
+    position: relative;
+    padding-right: 2rem;
+    user-select: none;
+    margin-bottom: 0;
+    transition: color 0.3s ease;
+}
+
+.collapsible .collapsible-trigger:hover {
+    color: var(--color-link);
+}
+
+.collapsible .collapsible-trigger:focus-visible {
+    outline: 2px solid var(--color-link);
+    outline-offset: 4px;
+}
+
+/* Chevron icon */
+.collapsible .collapsible-trigger::after {
+    content: "";
+    background-color: var(--color-link);
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    width: 1.2rem;
+    height: 1.2rem;
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    transition: transform 0.5s ease;
+}
+
+.collapsible .collapsible-trigger[aria-expanded="true"]::after {
+    transform: translateY(-50%) rotate(180deg);
+}
+
+/* Editor: Chevron starts rotated (expanded), normal when content is collapsed */
+body#tinymce .collapsible .collapsible-trigger::after {
+    transform: translateY(-50%) rotate(180deg);
+}
+
+body#tinymce .collapsible:has(.collapsible-content.collapsed) .collapsible-trigger::after {
+    transform: translateY(-50%) rotate(0deg);
+}
