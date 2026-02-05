@@ -8,15 +8,14 @@ declare(strict_types=1);
  * and default content templates.
  */
 
-// Remove Gutenberg Block Library CSS from loading on the frontend
-function smartwp_remove_wp_block_library_css()
+function tah_remove_block_library_css()
 {
     wp_dequeue_style('wp-block-library'); // WordPress core
     wp_dequeue_style('wp-block-library-theme'); // WordPress core
     wp_dequeue_style('wc-block-style'); // WooCommerce
     wp_dequeue_style('storefront-gutenberg-blocks'); // Storefront theme
 }
-add_action('wp_enqueue_scripts', 'smartwp_remove_wp_block_library_css', 100);
+add_action('wp_enqueue_scripts', 'tah_remove_block_library_css', 100);
 
 /**
  * COMPLETELY DISABLE BLOCK EDITOR (GUTENBERG)
@@ -27,19 +26,18 @@ add_action('wp_enqueue_scripts', 'smartwp_remove_wp_block_library_css', 100);
 add_filter('use_block_editor_for_post', '__return_false', 10);
 add_filter('use_widgets_block_editor', '__return_false');
 
-// Disable Lightbox on Some Pages
-function my_lbwps_enabled($enabled, $id)
+function tah_lightbox_enabled($enabled, $id)
 {
     if (is_category() || is_archive() || is_post_type_archive() || is_home() || is_front_page() || is_page() || is_author() || is_tag())
         return false;
     return $enabled;
 }
-add_filter('lbwps_enabled', 'my_lbwps_enabled', 10, 2);
+add_filter('lbwps_enabled', 'tah_lightbox_enabled', 10, 2);
 
 // Default Editor Content
-add_filter('default_content', 'pu_default_editor_content');
+add_filter('default_content', 'tah_default_editor_content');
 
-function pu_default_editor_content($content)
+function tah_default_editor_content($content)
 {
 
     global $post_type;
@@ -71,17 +69,17 @@ add_action('media_buttons', function ($editor_id) {
     echo '<a href="#" id="my_template_button" class="button">Templates</a>';
 });
 
-function enqueue_custom_admin_js($hook)
+function tah_enqueue_template_dropdown_js($hook)
 {
     // Only load on post editor pages
-    if (!in_array($hook, ['post.php', 'post-new.php'])) {
+    if (!in_array($hook, ['post.php', 'post-new.php'], true)) {
         return;
     }
 
-    wp_enqueue_script('my-custom-script', get_template_directory_uri() . '/assets/js/custom-script.js', array('jquery'), filemtime(get_template_directory() . '/assets/js/custom-script.js'), true);
+    wp_enqueue_script('tah-template-dropdown', get_template_directory_uri() . '/assets/js/custom-script.js', array('jquery'), filemtime(get_template_directory() . '/assets/js/custom-script.js'), true);
 
     // Get templates dynamically from the directory
-    $templates = get_quote_templates();
+    $templates = tah_get_quote_templates();
 
     // Pre-escape data for safe JS interpolation
     $escaped_templates = array_map(function ($t) {
@@ -93,24 +91,24 @@ function enqueue_custom_admin_js($hook)
     }, $templates);
 
     // Localize script to pass templates data to JavaScript
-    wp_localize_script('my-custom-script', 'templateData', array(
+    wp_localize_script('tah-template-dropdown', 'templateData', array(
         'url' => get_template_directory_uri() . '/assets/templates/quotes/',
         'templates' => $escaped_templates
     ));
 }
-add_action('admin_enqueue_scripts', 'enqueue_custom_admin_js');
+add_action('admin_enqueue_scripts', 'tah_enqueue_template_dropdown_js');
 
 /**
  * Scan templates directory and return array of templates with metadata
  */
-function get_quote_templates()
+function tah_get_quote_templates()
 {
     $templates = [];
     $dir = get_template_directory() . '/assets/templates/quotes/';
 
     foreach (glob($dir . '*.html') as $file) {
         $content = file_exists($file) ? file_get_contents($file) : '';
-        $metadata = parse_template_metadata($content);
+        $metadata = tah_parse_template_metadata($content);
         $filename = basename($file);
 
         $templates[] = [
@@ -135,7 +133,7 @@ function get_quote_templates()
  * Description: Template description text
  * -->
  */
-function parse_template_metadata($content)
+function tah_parse_template_metadata($content)
 {
     $metadata = [];
 

@@ -67,8 +67,8 @@ jQuery(document).ready(function ($) {
         $dropdown = $(buildDropdownHTML());
         $container.prepend($dropdown);
 
-        // Focus first item for keyboard users
-        $dropdown.find('.template-dropdown-item').first().focus();
+        // Don't auto-focus first item - let user navigate with keyboard or click with mouse
+        // This prevents dual highlight (focus + hover) issue
 
         // Bind close handlers
         $(document).on('click.tplDropdown', handleClickOutside);
@@ -113,11 +113,16 @@ jQuery(document).ready(function ($) {
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
             e.preventDefault();
             var $items = $('.template-dropdown-item');
+            if (!$items.length) return;
+
             var $focused = $items.filter(':focus');
             var currentIndex = $items.index($focused);
             var nextIndex;
 
-            if (e.key === 'ArrowDown') {
+            if (currentIndex === -1) {
+                // No item focused yet - start from first (ArrowDown) or last (ArrowUp)
+                nextIndex = e.key === 'ArrowDown' ? 0 : $items.length - 1;
+            } else if (e.key === 'ArrowDown') {
                 nextIndex = currentIndex < $items.length - 1 ? currentIndex + 1 : 0;
             } else {
                 nextIndex = currentIndex > 0 ? currentIndex - 1 : $items.length - 1;
