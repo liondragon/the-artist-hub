@@ -19,12 +19,20 @@ jQuery(document).ready(function ($) {
         return html;
     }
 
-    function openDropdown($button) {
-        if ($dropdown) return; // Already open
+    function openDropdown() {
+        if ($dropdown) return;
 
-        var $container = $button.closest('#wp-content-media-buttons');
+        // Insert after the editor-tools container (contains media buttons + visual/code tabs)
+        var $editorTools = $('#wp-content-editor-tools');
+        if (!$editorTools.length) {
+            // Fallback to post body content
+            $editorTools = $('#post-body-content');
+        }
+
         $dropdown = $(buildDropdownHTML());
-        $container.after($dropdown);
+
+        // Insert as first child of the editor container for proper flow
+        $('#wp-content-wrap').prepend($dropdown);
 
         // Bind close handlers
         $(document).on('click.tplDropdown', handleClickOutside);
@@ -61,7 +69,7 @@ jQuery(document).ready(function ($) {
         if ($dropdown) {
             closeDropdown();
         } else {
-            openDropdown($(this));
+            openDropdown();
         }
     });
 
