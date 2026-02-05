@@ -30,7 +30,7 @@ add_filter('use_widgets_block_editor', '__return_false');
 // Disable Lightbox on Some Pages
 function my_lbwps_enabled($enabled, $id)
 {
-    if (is_category() || is_archive() || is_post_type_archive() || is_home() || is_front_page() || is_page() || is_author() | is_tag())
+    if (is_category() || is_archive() || is_post_type_archive() || is_home() || is_front_page() || is_page() || is_author() || is_tag())
         return false;
     return $enabled;
 }
@@ -50,7 +50,8 @@ function pu_default_editor_content($content)
             break;
 
         case 'quotes':
-            $content = file_get_contents(get_template_directory() . '/assets/templates/quotes/hardwood.html');
+            $file = get_template_directory() . '/assets/templates/quotes/hardwood.html';
+            $content = file_exists($file) ? file_get_contents($file) : '';
             break;
 
         case 'projects':
@@ -61,22 +62,40 @@ function pu_default_editor_content($content)
     return $content;
 }
 
-// Templates Button in Admin
+// Templates Button in Admin (only for quotes post type)
 add_action('media_buttons', function ($editor_id) {
+    global $post_type;
+    if ($post_type !== 'quotes') {
+        return;
+    }
     echo '<a href="#" id="my_template_button" class="button">Templates</a>';
 });
 
-function enqueue_custom_admin_js()
+function enqueue_custom_admin_js($hook)
 {
+    // Only load on post editor pages
+    if (!in_array($hook, ['post.php', 'post-new.php'])) {
+        return;
+    }
+
     wp_enqueue_script('my-custom-script', get_template_directory_uri() . '/assets/js/custom-script.js', array('jquery'), filemtime(get_template_directory() . '/assets/js/custom-script.js'), true);
 
     // Get templates dynamically from the directory
     $templates = get_quote_templates();
 
+    // Pre-escape data for safe JS interpolation
+    $escaped_templates = array_map(function ($t) {
+        return [
+            'file' => esc_attr($t['file']),
+            'title' => esc_html($t['title']),
+            'description' => esc_html($t['description'])
+        ];
+    }, $templates);
+
     // Localize script to pass templates data to JavaScript
     wp_localize_script('my-custom-script', 'templateData', array(
         'url' => get_template_directory_uri() . '/assets/templates/quotes/',
-        'templates' => $templates
+        'templates' => $escaped_templates
     ));
 }
 add_action('admin_enqueue_scripts', 'enqueue_custom_admin_js');
@@ -90,7 +109,7 @@ function get_quote_templates()
     $dir = get_template_directory() . '/assets/templates/quotes/';
 
     foreach (glob($dir . '*.html') as $file) {
-        $content = file_get_contents($file);
+        $content = file_exists($file) ? file_get_contents($file) : '';
         $metadata = parse_template_metadata($content);
         $filename = basename($file);
 

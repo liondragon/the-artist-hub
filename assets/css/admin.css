@@ -148,3 +148,19 @@ body.login {
     color: #787c82;
     font-style: italic;
 }
+
+/* Loading state */
+.template-dropdown-item.is-loading {
+    opacity: 0.6;
+    pointer-events: none;
+    color: #787c82;
+}
+
+/* Error message */
+.template-dropdown-error {
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #d63638;
+    background: #fcf0f1;
+    border-top: 1px solid #facfd2;
+}
