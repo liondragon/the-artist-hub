@@ -47,6 +47,10 @@ body#tinymce {
 body#tinymce {
     margin: 0 auto;
     max-width: 960px;
+    min-height: 500px;
+    /* Reasonable default height */
+    padding-bottom: 8rem;
+    /* Buffer to prevent layout shifts */
 }
 
 /* Headings */
