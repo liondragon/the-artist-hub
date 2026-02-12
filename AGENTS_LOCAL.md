@@ -18,6 +18,17 @@
 - Templates loaded from `assets/templates/quotes/*.html`
 - Template metadata parsed from HTML comment headers
 
+### Quote Sections (Metabox System)
+- **Protocol**: See `docs/metabox_approach.md`
+- **Architecture**:
+  - **Global Library**: `tah_template_part` CPT (managed in Admin > Global Sections).
+  - **Trade Presets**: Taxonomy meta on `trade` terms (managed in Admin > Trades).
+  - **Quote Storage**: `_tah_quote_sections_order` post meta on `quotes`.
+- **Implementation**:
+  - `inc/admin/class-trade-presets.php`: Handles Trade Taxonomy fields.
+  - `inc/admin/class-quote-sections.php`: Handles Quote Metabox and Frontend rendering.
+  - `assets/js/quote-sections.js`: Handles drag-and-drop and UI interactions.
+
 ### Block Editor
 - Gutenberg is **disabled** (`use_block_editor_for_post` returns false)
 - Classic Editor (TinyMCE) is the only editor
@@ -34,3 +45,12 @@
 | CSS variables | `assets/css/variables.css` |
 | Admin scripts | `assets/js/custom-script.js` |
 | Quote templates | `assets/templates/quotes/` |
+| Quote Sections Logic | `inc/admin/class-quote-sections.php` |
+
+## Known Issues / TODO
+- **Typos in Content**:
+  - "Prep Allwoance" -> "Allowance" (likely in `assets/templates/quotes/` or database content)
+  - "Fateners/Adhesives" -> "Fasteners"
+- **UX**:
+  - Admin: Section keys (e.g. `(dust_collection)`) are visible to all users.
+  - Frontend: "Base Quote" columns need better alignment.

@@ -164,3 +164,151 @@ body.login {
     background: #fcf0f1;
     border-top: 1px solid #facfd2;
 }
+
+/* ==========================================================================
+   Quote Sections Metabox
+   ========================================================================== */
+
+.tah-quote-sections-header {
+    margin-bottom: 12px;
+}
+
+.tah-quote-sections-tools {
+    margin-bottom: 12px;
+}
+
+#tah-quote-sections-list {
+    margin: 0;
+}
+
+.tah-quote-section-item {
+    list-style: none;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+    background: #fff;
+    margin: 0 0 12px;
+    padding: 10px;
+}
+
+.tah-quote-section-title {
+    font-weight: 600;
+}
+
+.tah-quote-section-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.tah-inline-enable {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: auto;
+}
+
+.tah-inline-enable input[type="checkbox"] {
+    margin: 0;
+}
+
+.tah-local-title-input {
+    min-width: 220px;
+}
+
+.tah-mode-badge {
+    display: inline-block;
+    font-size: 12px;
+    line-height: 1;
+    padding: 4px 8px;
+    border-radius: 12px;
+    background: #f0f0f1;
+    color: #646970;
+}
+
+.tah-drag-handle {
+    cursor: move;
+    color: #646970;
+    margin-right: 4px;
+}
+
+.tah-section-placeholder {
+    border: 1px dashed #8c8f94;
+    background: #f6f7f7;
+    height: 40px;
+    margin: 0 0 12px;
+}
+
+.tah-create-section-item {
+    background: #fff;
+}
+
+.tah-create-section-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.tah-create-section-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tah-create-section-plus {
+    color: #8c8f94;
+}
+
+.tah-create-section-input {
+    flex: 1 1 auto;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    line-height: 1.4;
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+    padding: 4px 0;
+}
+
+.tah-create-section-input:focus {
+    border: 0;
+    box-shadow: none;
+    outline: none;
+}
+
+.tah-create-section-save,
+.tah-create-section-discard {
+    color: #646970;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tah-create-section-save .dashicons,
+.tah-create-section-discard .dashicons {
+    font-size: 22px;
+    width: 22px;
+    height: 22px;
+}
+
+.tah-create-section-save:hover,
+.tah-create-section-save:focus {
+    color: #2ea043;
+}
+
+.tah-create-section-discard:hover,
+.tah-create-section-discard:focus {
+    color: #d63638;
+}
+
+.tah-create-section-save[disabled] {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
+.tah-create-section-help {
+    margin: 6px 0 0;
+}

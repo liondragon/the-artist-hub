@@ -1,6 +1,12 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/admin/class-quote-sections.php';
+
+if (is_admin()) {
+    require_once __DIR__ . '/admin/class-trade-presets.php';
+}
+
 /**
  * Admin Customization & Security
  * 
