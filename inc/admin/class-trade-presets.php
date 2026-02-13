@@ -151,7 +151,8 @@ class TAH_Trade_Presets
             'post_type' => 'tah_template_part',
             'post_status' => 'publish',
             'posts_per_page' => -1,
-            'orderby' => ['menu_order' => 'ASC', 'title' => 'ASC'],
+            'orderby' => 'date',
+            'order' => 'DESC',
         ];
 
         $posts = get_posts($args);

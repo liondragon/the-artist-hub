@@ -54,7 +54,7 @@ function register_cpt_tah_template_part()
         'has_archive' => false,
         'hierarchical' => false,
         'menu_position' => null,
-        'supports' => array('title', 'editor', 'page-attributes'), // page-attributes for menu_order
+        'supports' => array('title', 'editor'),
     );
 
     register_post_type('tah_template_part', $args);
@@ -222,7 +222,6 @@ add_filter('manage_tah_template_part_posts_columns', 'tah_section_columns');
 function tah_section_columns($columns)
 {
     $columns['tah_key'] = __('Section Key', 'the-artist');
-    $columns['menu_order'] = __('Order', 'the-artist'); // Make sure standard column shows if supported
     return $columns;
 }
 
@@ -233,12 +232,4 @@ function tah_section_custom_column($column, $post_id)
         $key = get_post_meta($post_id, '_tah_section_key', true);
         echo $key ? '<code>' . esc_html($key) . '</code>' : '<span style="color:red;">(No Key)</span>';
     }
-}
-
-// Make Menu Order Sortable
-add_filter('manage_edit-tah_template_part_sortable_columns', 'tah_section_sortable_columns');
-function tah_section_sortable_columns($columns)
-{
-    $columns['menu_order'] = 'menu_order';
-    return $columns;
 }

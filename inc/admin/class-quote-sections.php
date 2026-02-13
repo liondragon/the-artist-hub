@@ -686,7 +686,8 @@ class TAH_Quote_Sections
             'post_type' => 'tah_template_part',
             'post_status' => 'publish',
             'posts_per_page' => -1,
-            'orderby' => ['menu_order' => 'ASC', 'title' => 'ASC', 'ID' => 'ASC'],
+            'orderby' => 'date',
+            'order' => 'DESC',
             'fields' => 'ids',
             'no_found_rows' => true,
         ]);
@@ -816,7 +817,8 @@ class TAH_Quote_Sections
             'post_type' => 'tah_template_part',
             'post_status' => 'publish',
             'posts_per_page' => -1,
-            'orderby' => ['menu_order' => 'ASC', 'title' => 'ASC', 'ID' => 'ASC'],
+            'orderby' => 'date',
+            'order' => 'DESC',
             'fields' => 'ids',
             'no_found_rows' => true,
         ]);
