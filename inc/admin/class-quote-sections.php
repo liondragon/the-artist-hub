@@ -15,6 +15,7 @@ class TAH_Quote_Sections
     const FIELD_TITLE = 'tah_quote_section_title';
     const FIELD_MODE = 'tah_quote_section_mode';
     const FIELD_CONTENT = 'tah_quote_section_content';
+    const FIELD_DELETED = 'tah_quote_sections_deleted';
     const FIELD_ACTION = 'tah_quote_sections_action';
     const META_ORDER = '_tah_quote_sections_order';
     const META_TRADE_PRESET = '_tah_trade_default_sections';
@@ -117,15 +118,23 @@ class TAH_Quote_Sections
         }
 
         echo '<div class="tah-quote-sections-tools">';
-        echo '<button type="submit" class="button button-secondary" name="' . esc_attr(self::FIELD_ACTION) . '" value="' . esc_attr(self::ACTION_SYNC) . '" ' . disabled(!$has_active_trade, true, false) . '>';
+        echo '<div class="tah-actions-dropdown">';
+        echo '<button type="button" class="button tah-actions-toggle" aria-label="' . esc_attr__('Actions', 'the-artist') . '">';
+        echo '<span class="dashicons dashicons-ellipsis"></span>';
+        echo '</button>';
+        echo '<div class="tah-actions-menu" style="display:none;">';
+        echo '<button type="submit" class="tah-menu-item" name="' . esc_attr(self::FIELD_ACTION) . '" value="' . esc_attr(self::ACTION_SYNC) . '" ' . disabled(!$has_active_trade, true, false) . '>';
         echo esc_html__('Sync from Trade', 'the-artist');
-        echo '</button> ';
-        echo '<button type="submit" class="button button-secondary" name="' . esc_attr(self::FIELD_ACTION) . '" value="' . esc_attr(self::ACTION_RESET_ORDER) . '" ' . disabled(!$has_active_trade, true, false) . '>';
+        echo '</button>';
+        echo '<button type="submit" class="tah-menu-item" name="' . esc_attr(self::FIELD_ACTION) . '" value="' . esc_attr(self::ACTION_RESET_ORDER) . '" ' . disabled(!$has_active_trade, true, false) . '>';
         echo esc_html__('Reset Order to Trade', 'the-artist');
-        echo '</button> ';
-        echo '<button type="submit" class="button button-secondary" name="' . esc_attr(self::FIELD_ACTION) . '" value="' . esc_attr(self::ACTION_RESET_TRADE_DEFAULT) . '" ' . disabled(!$has_active_trade, true, false) . '>';
+        echo '</button>';
+        echo '<div class="tah-menu-separator"></div>';
+        echo '<button type="submit" class="tah-menu-item tah-menu-item-danger" name="' . esc_attr(self::FIELD_ACTION) . '" value="' . esc_attr(self::ACTION_RESET_TRADE_DEFAULT) . '" ' . disabled(!$has_active_trade, true, false) . '>';
         echo esc_html__('Reset to Trade Default', 'the-artist');
         echo '</button>';
+        echo '</div>'; // .tah-actions-menu
+        echo '</div>'; // .tah-actions-dropdown
         echo '</div>';
 
         $empty_message_style = empty($order) ? '' : ' style="display:none"';
@@ -134,6 +143,7 @@ class TAH_Quote_Sections
         echo '</p>';
 
         echo '<input type="hidden" id="tah-quote-sections-order" name="' . esc_attr(self::FIELD_ORDER) . '" value="' . esc_attr(implode(',', $order)) . '">';
+        echo '<input type="hidden" id="tah-quote-sections-deleted" name="' . esc_attr(self::FIELD_DELETED) . '" value="">';
 
         echo '<ul id="tah-quote-sections-list">';
         foreach ($order as $key) {
@@ -145,21 +155,24 @@ class TAH_Quote_Sections
             echo '<div class="tah-quote-section-title-row">';
             echo '<span class="tah-drag-handle" aria-hidden="true"><svg viewBox="0 0 32 32" class="svg-icon"><path d="M 14 5.5 a 3 3 0 1 1 -3 -3 A 3 3 0 0 1 14 5.5 Z m 7 3 a 3 3 0 1 0 -3 -3 A 3 3 0 0 0 21 8.5 Z m -10 4 a 3 3 0 1 0 3 3 A 3 3 0 0 0 11 12.5 Z m 10 0 a 3 3 0 1 0 3 3 A 3 3 0 0 0 21 12.5 Z m -10 10 a 3 3 0 1 0 3 3 A 3 3 0 0 0 11 22.5 Z m 10 0 a 3 3 0 1 0 3 3 A 3 3 0 0 0 21 22.5 Z"></path></svg></span>';
             echo '<label class="tah-inline-enable">';
-            echo '<input type="hidden" name="' . esc_attr(self::FIELD_ENABLED) . '[' . esc_attr($key) . ']" value="0">';
-            echo '<input type="checkbox" name="' . esc_attr(self::FIELD_ENABLED) . '[' . esc_attr($key) . ']" value="1" ' . checked($state['enabled'], true, false) . '> ';
             if ($is_local) {
                 echo '<input type="text" class="tah-local-title-input" name="' . esc_attr(self::FIELD_TITLE) . '[' . esc_attr($key) . ']" value="' . esc_attr($title) . '" placeholder="' . esc_attr__('Custom Section Title', 'the-artist') . '">';
             } else {
                 echo '<span class="tah-quote-section-title">' . esc_html($title) . '</span>';
             }
             echo '</label>';
+            echo '<input type="hidden" class="tah-section-enabled-input" name="' . esc_attr(self::FIELD_ENABLED) . '[' . esc_attr($key) . ']" value="' . esc_attr($state['enabled'] ? '1' : '0') . '">';
+            echo '<input type="hidden" class="tah-section-mode-input" name="' . esc_attr(self::FIELD_MODE) . '[' . esc_attr($key) . ']" value="' . esc_attr($state['mode']) . '">';
+            $enabled_label = $state['enabled'] ? __('Hide section', 'the-artist') : __('Show section', 'the-artist');
+            $enabled_icon = $state['enabled'] ? 'dashicons-visibility' : 'dashicons-hidden';
+            echo '<button type="button" class="button-link tah-toggle-enabled tah-icon-button" aria-label="' . esc_attr($enabled_label) . '" title="' . esc_attr($enabled_label) . '">';
+            echo '<span class="dashicons ' . esc_attr($enabled_icon) . '" aria-hidden="true"></span>';
+            echo '</button>';
             $reset_style = ' style="display:none"';
             echo '<button type="button" class="button-link tah-reset-section"' . $reset_style . '>' . esc_html__('Revert to Default', 'the-artist') . '</button>';
-            if ($is_local) {
-                echo '<button type="button" class="button-link tah-delete-section" aria-label="' . esc_attr__('Delete section', 'the-artist') . '">';
-                echo '<span class="lp-btn-icon dashicons dashicons-trash" aria-hidden="true"></span>';
-                echo '</button>';
-            }
+            echo '<button type="button" class="button-link tah-delete-section" aria-label="' . esc_attr__('Delete section', 'the-artist') . '">';
+            echo '<span class="lp-btn-icon dashicons dashicons-trash" aria-hidden="true"></span>';
+            echo '</button>';
             echo '<button type="button" class="button-link tah-edit-section tah-icon-button" aria-label="' . esc_attr__('Expand', 'the-artist') . '" title="' . esc_attr__('Expand', 'the-artist') . '">';
             echo '<span class="dashicons dashicons-arrow-down-alt2" aria-hidden="true"></span>';
             echo '</button>';
@@ -249,6 +262,8 @@ class TAH_Quote_Sections
                 'activeRecipePrefix' => __('Active Recipe: ', 'the-artist'),
                 'none' => __('None', 'the-artist'),
                 'enabled' => __('Enabled', 'the-artist'),
+                'showSection' => __('Show section', 'the-artist'),
+                'hideSection' => __('Hide section', 'the-artist'),
                 'default' => __('DEFAULT', 'the-artist'),
                 'modified' => __('MODIFIED', 'the-artist'),
                 'customLocal' => __('CUSTOM', 'the-artist'),
@@ -345,8 +360,22 @@ class TAH_Quote_Sections
             return;
         }
 
+        $deleted_keys = [];
+        if (isset($_POST[self::FIELD_DELETED])) {
+            $deleted_keys = $this->normalize_order($_POST[self::FIELD_DELETED]);
+            if (!empty($deleted_keys)) {
+                $this->clear_section_overrides($post_id, $deleted_keys);
+            }
+        }
+
         if (isset($_POST[self::FIELD_ORDER])) {
             $order = $this->normalize_order($_POST[self::FIELD_ORDER]);
+            if (!empty($deleted_keys)) {
+                $deleted_set = array_fill_keys($deleted_keys, true);
+                $order = array_values(array_filter($order, function ($key) use ($deleted_set) {
+                    return !isset($deleted_set[$key]);
+                }));
+            }
             update_post_meta($post_id, self::META_ORDER, $order);
         }
 
