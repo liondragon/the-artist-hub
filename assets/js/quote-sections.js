@@ -348,6 +348,26 @@
                 handle: '.tah-drag-handle',
                 placeholder: 'tah-section-placeholder'
             });
+
+            $(document).on('click', '.tah-trade-toggle-enabled', function (event) {
+                event.preventDefault();
+                var $item = $(this).closest('.tah-trade-section-row');
+                var $input = $item.find('.tah-trade-section-enabled');
+                var $icon = $(this).find('.dashicons');
+                var isEnabled = $input.val() === '1';
+
+                if (isEnabled) {
+                    $input.val('0');
+                    $icon.removeClass('dashicons-visibility').addClass('dashicons-hidden');
+                    $(this).attr('aria-label', 'Not in recipe').attr('title', 'Not in recipe');
+                    $item.addClass('tah-trade-section-disabled');
+                } else {
+                    $input.val('1');
+                    $icon.removeClass('dashicons-hidden').addClass('dashicons-visibility');
+                    $(this).attr('aria-label', 'Included in recipe').attr('title', 'Included in recipe');
+                    $item.removeClass('tah-trade-section-disabled');
+                }
+            });
         }
 
         $(document).on('click', '.tah-edit-section', function () {

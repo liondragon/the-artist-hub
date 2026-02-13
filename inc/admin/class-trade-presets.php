@@ -116,29 +116,26 @@ class TAH_Trade_Presets
             return;
         }
 
-        if (!isset($_POST['tah_trade_sections'])) {
-            // If field missing (unchecked all), save empty array
+        if (!isset($_POST['tah_trade_sections']) || !is_array($_POST['tah_trade_sections'])) {
             update_term_meta($term_id, self::META_KEY, []);
             return;
         }
 
-        $submitted_keys = array_map(
-            'sanitize_key',
-            (array) wp_unslash($_POST['tah_trade_sections'])
-        );
+        $submitted = (array) wp_unslash($_POST['tah_trade_sections']);
 
         // VALIDATION: Filter out unknown keys against the current Global Library.
         $valid_keys = wp_list_pluck($this->get_all_global_sections(), 'key');
         $valid_key_set = array_fill_keys($valid_keys, true);
 
         $filtered_keys = [];
-        foreach ($submitted_keys as $key) {
-            if ($key !== '' && isset($valid_key_set[$key])) {
-                $filtered_keys[] = $key;
+        foreach ($submitted as $key => $value) {
+            $section_key = sanitize_key((string) $key);
+            if ($section_key !== '' && $value === '1' && isset($valid_key_set[$section_key])) {
+                $filtered_keys[] = $section_key;
             }
         }
 
-        // Save as indexed array.
+        // Save as indexed array (order preserved from DOM/sortable).
         update_term_meta($term_id, self::META_KEY, array_values(array_unique($filtered_keys)));
     }
 
@@ -202,16 +199,32 @@ class TAH_Trade_Presets
             $sorted[] = $remaining;
         }
 
-        echo '<ul class="tah-trade-sections-sortable" style="max-height:300px; overflow-y:auto; border:1px solid #ddd; padding:10px; background:#fff; margin:0;">';
+        echo '<ul class="tah-trade-sections-sortable tah-quote-sections-list">';
         foreach ($sorted as $sec) {
             $checked = in_array($sec['key'], $saved_keys, true);
-            echo '<li class="tah-trade-section-row" style="list-style:none; margin:0 0 6px; padding:6px; border:1px solid #eee; background:#fff;" data-key="' . esc_attr($sec['key']) . '">';
-            echo '<label style="display:flex; align-items:center; gap:8px; margin:0;">';
-            echo '<span class="dashicons dashicons-move tah-drag-handle" aria-hidden="true"></span>';
-            echo '<input type="checkbox" name="tah_trade_sections[]" value="' . esc_attr($sec['key']) . '" ' . checked($checked, true, false) . '>';
-            echo '<span>' . esc_html($sec['title']) . '</span> ';
-            echo '<code style="color:#666; font-size:0.85em;">(' . esc_html($sec['key']) . ')</code>';
+            $enabled_label = $checked ? __('Included in recipe', 'the-artist') : __('Not in recipe', 'the-artist');
+            $enabled_icon = $checked ? 'dashicons-visibility' : 'dashicons-hidden';
+
+            echo '<li class="tah-trade-section-row tah-quote-section-item' . ($checked ? '' : ' tah-trade-section-disabled') . '" data-key="' . esc_attr($sec['key']) . '">';
+            echo '<div class="tah-quote-section-title-row">';
+
+            // Drag handle — same SVG as Quote sections
+            echo '<span class="tah-drag-handle" aria-hidden="true"><svg viewBox="0 0 32 32" class="svg-icon"><path d="M 14 5.5 a 3 3 0 1 1 -3 -3 A 3 3 0 0 1 14 5.5 Z m 7 3 a 3 3 0 1 0 -3 -3 A 3 3 0 0 0 21 8.5 Z m -10 4 a 3 3 0 1 0 3 3 A 3 3 0 0 0 11 12.5 Z m 10 0 a 3 3 0 1 0 3 3 A 3 3 0 0 0 21 12.5 Z m -10 10 a 3 3 0 1 0 3 3 A 3 3 0 0 0 11 22.5 Z m 10 0 a 3 3 0 1 0 3 3 A 3 3 0 0 0 21 22.5 Z"></path></svg></span>';
+
+            // Title
+            echo '<label class="tah-inline-enable">';
+            echo '<span class="tah-quote-section-title">' . esc_html($sec['title']) . '</span>';
             echo '</label>';
+
+            // Hidden input to carry the value when included
+            echo '<input type="hidden" class="tah-trade-section-enabled" name="tah_trade_sections[' . esc_attr($sec['key']) . ']" value="' . ($checked ? '1' : '0') . '">';
+
+            // Visibility toggle icon — always visible
+            echo '<button type="button" class="button-link tah-trade-toggle-enabled tah-icon-button" aria-label="' . esc_attr($enabled_label) . '" title="' . esc_attr($enabled_label) . '">';
+            echo '<span class="dashicons ' . esc_attr($enabled_icon) . '" aria-hidden="true"></span>';
+            echo '</button>';
+
+            echo '</div>';
             echo '</li>';
         }
         echo '</ul>';

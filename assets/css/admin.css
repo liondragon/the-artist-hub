@@ -281,6 +281,31 @@ body.login {
     margin: 0;
 }
 
+/* Trade sections sortable list (on Trade add/edit screens) */
+.tah-trade-sections-sortable {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+    padding: 6px;
+    margin: 0;
+    background: #f6f7f7;
+}
+
+.tah-trade-sections-sortable .tah-quote-section-item {
+    margin-bottom: 6px;
+    padding: 8px 10px;
+}
+
+.tah-trade-sections-sortable .tah-quote-section-item:last-child {
+    margin-bottom: 0;
+}
+
+.tah-trade-section-disabled {
+    opacity: 0.5;
+}
+
+
 .tah-quote-section-item {
     list-style: none;
     border: 1px solid #dcdcde;
