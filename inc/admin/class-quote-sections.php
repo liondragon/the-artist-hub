@@ -143,7 +143,7 @@ class TAH_Quote_Sections
 
             echo '<li class="tah-quote-section-item" data-key="' . esc_attr($key) . '">';
             echo '<div class="tah-quote-section-title-row">';
-            echo '<span class="dashicons dashicons-move tah-drag-handle" aria-hidden="true"></span>';
+            echo '<span class="tah-drag-handle" aria-hidden="true"><svg viewBox="0 0 32 32" class="svg-icon"><path d="M 14 5.5 a 3 3 0 1 1 -3 -3 A 3 3 0 0 1 14 5.5 Z m 7 3 a 3 3 0 1 0 -3 -3 A 3 3 0 0 0 21 8.5 Z m -10 4 a 3 3 0 1 0 3 3 A 3 3 0 0 0 11 12.5 Z m 10 0 a 3 3 0 1 0 3 3 A 3 3 0 0 0 21 12.5 Z m -10 10 a 3 3 0 1 0 3 3 A 3 3 0 0 0 11 22.5 Z m 10 0 a 3 3 0 1 0 3 3 A 3 3 0 0 0 21 22.5 Z"></path></svg></span>';
             echo '<label class="tah-inline-enable">';
             echo '<input type="hidden" name="' . esc_attr(self::FIELD_ENABLED) . '[' . esc_attr($key) . ']" value="0">';
             echo '<input type="checkbox" name="' . esc_attr(self::FIELD_ENABLED) . '[' . esc_attr($key) . ']" value="1" ' . checked($state['enabled'], true, false) . '> ';
@@ -153,12 +153,24 @@ class TAH_Quote_Sections
                 echo '<span class="tah-quote-section-title">' . esc_html($title) . '</span>';
             }
             echo '</label>';
-            echo '<input type="hidden" class="tah-section-mode-input" name="' . esc_attr(self::FIELD_MODE) . '[' . esc_attr($key) . ']" value="' . esc_attr($state['mode']) . '">';
-            $mode_badge = $state['mode'] === self::MODE_CUSTOM ? __('Custom', 'the-artist') : __('Default', 'the-artist');
-            echo '<span class="tah-mode-badge">' . esc_html($mode_badge) . '</span>';
             $reset_style = ' style="display:none"';
             echo '<button type="button" class="button-link tah-reset-section"' . $reset_style . '>' . esc_html__('Revert to Default', 'the-artist') . '</button>';
-            echo '<button type="button" class="button-link tah-edit-section">' . esc_html__('Edit', 'the-artist') . '</button>';
+            if ($is_local) {
+                echo '<button type="button" class="button-link tah-delete-section" aria-label="' . esc_attr__('Delete section', 'the-artist') . '">';
+                echo '<span class="lp-btn-icon dashicons dashicons-trash" aria-hidden="true"></span>';
+                echo '</button>';
+            }
+            echo '<button type="button" class="button-link tah-edit-section tah-icon-button" aria-label="' . esc_attr__('Expand', 'the-artist') . '" title="' . esc_attr__('Expand', 'the-artist') . '">';
+            echo '<span class="dashicons dashicons-arrow-down-alt2" aria-hidden="true"></span>';
+            echo '</button>';
+            if ($is_local) {
+                $mode_badge = __('CUSTOM', 'the-artist');
+            } else {
+                $mode_badge = $state['mode'] === self::MODE_CUSTOM
+                    ? __('MODIFIED', 'the-artist')
+                    : __('DEFAULT', 'the-artist');
+            }
+            echo '<span class="tah-mode-badge">' . esc_html($mode_badge) . '</span>';
             echo '</div>';
 
             $custom_style = 'style="display:none"';
@@ -171,19 +183,20 @@ class TAH_Quote_Sections
         }
 
         echo '<li class="tah-quote-section-item tah-create-section-item">';
+        echo '<div class="tah-quote-section-title-row">';
+        echo '<span class="dashicons dashicons-plus-alt2 tah-create-section-icon" aria-hidden="true"></span>';
+        echo '<input type="text" id="tah-create-section-input" class="tah-create-section-input" placeholder="' . esc_attr__('Create a new info section for this quote', 'the-artist') . '" autocomplete="off">';
+
         echo '<div class="tah-create-section-actions">';
+        echo '<button type="button" class="button-link tah-create-section-save" id="tah-create-section-save" aria-label="' . esc_attr__('Save new info section', 'the-artist') . '" disabled>';
+        echo '<span class="dashicons dashicons-yes" aria-hidden="true"></span>';
+        echo '</button>';
         echo '<button type="button" class="button-link tah-create-section-discard" id="tah-create-section-discard" aria-label="' . esc_attr__('Discard new info section', 'the-artist') . '" style="display:none">';
         echo '<span class="dashicons dashicons-no-alt" aria-hidden="true"></span>';
         echo '</button>';
-        echo '<button type="button" class="button-link tah-create-section-save" id="tah-create-section-save" aria-label="' . esc_attr__('Save new info section', 'the-artist') . '" disabled>';
-        echo '<span class="dashicons dashicons-yes-alt" aria-hidden="true"></span>';
-        echo '</button>';
-        echo '</div>';
-        echo '<div class="tah-create-section-row">';
-        echo '<span class="dashicons dashicons-plus-alt2 tah-create-section-plus" aria-hidden="true"></span>';
-        echo '<input type="text" id="tah-create-section-input" class="tah-create-section-input" placeholder="' . esc_attr__('Create a new info section for this quote', 'the-artist') . '" autocomplete="off">';
-        echo '</div>';
-        echo '<p class="description tah-create-section-help">' . esc_html__('Press Enter to add', 'the-artist') . '</p>';
+        echo '</div>'; // .tah-create-section-actions
+
+        echo '</div>'; // .tah-quote-section-title-row
         echo '</li>';
 
         echo '</ul>';
@@ -236,10 +249,12 @@ class TAH_Quote_Sections
                 'activeRecipePrefix' => __('Active Recipe: ', 'the-artist'),
                 'none' => __('None', 'the-artist'),
                 'enabled' => __('Enabled', 'the-artist'),
-                'default' => __('Default', 'the-artist'),
-                'custom' => __('Custom', 'the-artist'),
-                'edit' => __('Edit', 'the-artist'),
+                'default' => __('DEFAULT', 'the-artist'),
+                'modified' => __('MODIFIED', 'the-artist'),
+                'customLocal' => __('CUSTOM', 'the-artist'),
+                'expand' => __('Expand', 'the-artist'),
                 'collapse' => __('Collapse', 'the-artist'),
+                'deleteSection' => __('Delete section', 'the-artist'),
                 'resetToDefault' => __('Revert to Default', 'the-artist'),
                 'customHtml' => __('Custom HTML', 'the-artist'),
                 'customSectionTitlePlaceholder' => __('Custom Section Title', 'the-artist'),

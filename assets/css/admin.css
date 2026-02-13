@@ -198,7 +198,6 @@ body.login {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 8px;
 }
 
 .tah-inline-enable {
@@ -214,22 +213,59 @@ body.login {
 
 .tah-local-title-input {
     min-width: 220px;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+    font-weight: 600;
+    color: inherit;
+    padding: 0;
+    margin: 0;
+    font-size: inherit;
+}
+
+.tah-local-title-input:focus {
+    box-shadow: none !important;
+    border: none !important;
+    outline: none !important;
 }
 
 .tah-mode-badge {
     display: inline-block;
-    font-size: 12px;
+    font-size: 11px;
     line-height: 1;
-    padding: 4px 8px;
-    border-radius: 12px;
+    padding: 3px 6px;
+    border-radius: 4px;
     background: #f0f0f1;
     color: #646970;
+    /* Push to the right */
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .tah-drag-handle {
-    cursor: move;
+    cursor: pointer;
+    /* User requested hand cursor */
     color: #646970;
-    margin-right: 4px;
+    margin-right: 8px;
+    /* Increased spacing slightly */
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+    /* Reset line-height to avoid offset */
+}
+
+.tah-drag-handle svg {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+    display: block;
+    /* Remove inline spacing */
+}
+
+.tah-drag-handle:hover {
+    color: #2271b1;
+    /* WP Blue */
 }
 
 .tah-section-placeholder {
@@ -239,76 +275,134 @@ body.login {
     margin: 0 0 12px;
 }
 
+.tah-section-custom-content {
+    overflow: hidden;
+    padding: 0 10px 10px;
+    margin-top: 6px;
+}
+
+.tah-section-custom-content p:first-child {
+    margin-top: 0;
+}
+
 .tah-create-section-item {
     background: #fff;
 }
 
-.tah-create-section-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-bottom: 8px;
+.tah-create-section-item .tah-quote-section-title-row {
+    margin-bottom: 0;
+    /* Remove bottom margin since this is the only row */
 }
 
-.tah-create-section-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.tah-create-section-plus {
+.tah-create-section-icon {
     color: #8c8f94;
+    margin-right: 4px;
 }
 
 .tah-create-section-input {
-    flex: 1 1 auto;
+    flex: 1;
     font-size: 14px;
-    font-weight: 600;
-    font-family: inherit;
-    line-height: 1.4;
-    border: 0;
-    box-shadow: none;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
     background: transparent;
-    padding: 4px 0;
+    padding: 0;
+    margin: 0;
+    color: #2c3338;
 }
 
-.tah-create-section-input:focus {
-    border: 0;
-    box-shadow: none;
-    outline: none;
+.tah-create-section-input:focus,
+.tah-create-section-input:hover {
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+.tah-create-section-input::placeholder {
+    color: #646970;
+}
+
+.tah-create-section-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    /* Push to the right */
 }
 
 .tah-create-section-save,
 .tah-create-section-discard {
+    margin: 0;
+    padding: 0 4px;
     color: #646970;
-    text-decoration: none;
+}
+
+.tah-icon-button,
+.tah-delete-section {
+    margin: 0;
+    padding: 0 4px;
+    color: #3c434a !important;
+    /* Default grey - Force override */
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    text-decoration: none !important;
+    /* Remove underscore */
+    box-shadow: none !important;
+    /* Remove focus/active shadows if any */
+    opacity: 0;
+    /* Hide by default */
+    transition: opacity 0.2s, color 0.2s;
 }
 
-.tah-create-section-save .dashicons,
-.tah-create-section-discard .dashicons {
-    font-size: 22px;
-    width: 22px;
-    height: 22px;
+/* Show icons on row hover */
+.tah-quote-section-item:hover button.tah-icon-button,
+.tah-quote-section-item:hover button.tah-delete-section {
+    opacity: 1;
+}
+
+/* Keep icons visible if they have focus (accessibility) */
+.tah-icon-button:focus,
+.tah-delete-section:focus {
+    opacity: 1;
+}
+
+.tah-icon-button .dashicons,
+.tah-delete-section .dashicons {
+    font-size: 20px;
+    width: 25px;
+    height: 20px;
+    text-decoration: none;
+    /* Ensure no underline on icon */
+}
+
+/* Delete Icon Hover - Red */
+.tah-delete-section:hover,
+.tah-delete-section:focus {
+    color: #e74c3c !important;
+}
+
+/* Expand/Collapse Icon Hover - Blue */
+.tah-icon-button:hover,
+.tah-icon-button:focus {
+    color: #0073aa !important;
 }
 
 .tah-create-section-save:hover,
 .tah-create-section-save:focus {
     color: #2ea043;
+    /* Green for save */
 }
 
 .tah-create-section-discard:hover,
 .tah-create-section-discard:focus {
     color: #d63638;
+    /* Red for discard */
 }
 
-.tah-create-section-save[disabled] {
-    opacity: 0.45;
-    pointer-events: none;
-}
-
-.tah-create-section-help {
-    margin: 6px 0 0;
+.tah-create-section-save .dashicons,
+.tah-create-section-discard .dashicons {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
 }
