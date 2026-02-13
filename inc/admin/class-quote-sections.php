@@ -189,8 +189,8 @@ class TAH_Quote_Sections
 
             $custom_style = 'style="display:none"';
             echo '<div class="tah-section-custom-content" ' . $custom_style . '>';
-            echo '<p><label>' . esc_html__('Custom HTML', 'the-artist') . '</label></p>';
-            echo '<textarea class="widefat" rows="5" name="' . esc_attr(self::FIELD_CONTENT) . '[' . esc_attr($key) . ']">' . esc_textarea($state['content']) . '</textarea>';
+            echo '<textarea class="widefat" rows="5" aria-label="' . esc_attr__('Section HTML', 'the-artist') . '" name="' . esc_attr(self::FIELD_CONTENT) . '[' . esc_attr($key) . ']">' . esc_textarea($state['content']) . '</textarea>';
+            echo '<span class="tah-custom-html-hint" aria-hidden="true">' . esc_html__('HTML', 'the-artist') . '</span>';
             echo '</div>';
 
             echo '</li>';
@@ -273,7 +273,8 @@ class TAH_Quote_Sections
                 'collapse' => __('Collapse', 'the-artist'),
                 'deleteSection' => __('Delete section', 'the-artist'),
                 'resetToDefault' => __('Revert to Default', 'the-artist'),
-                'customHtml' => __('Custom HTML', 'the-artist'),
+                'sectionHtmlAria' => __('Section HTML', 'the-artist'),
+                'sectionHtmlHint' => __('HTML', 'the-artist'),
                 'customSectionTitlePlaceholder' => __('Custom Section Title', 'the-artist'),
                 'newSectionDefaultTitle' => __('Custom Section', 'the-artist'),
                 'emptyState' => __('No sections configured. Select a Trade above and click "Sync" to populate.', 'the-artist'),

@@ -290,7 +290,8 @@ body.login {
     padding: 10px;
 }
 
-.tah-quote-section-title {
+.tah-quote-section-title,
+.tah-local-title-input {
     font-weight: 600;
 }
 
@@ -320,17 +321,21 @@ body.login {
     margin: 0;
 }
 
-.tah-local-title-input {
+.tah-local-title-input,
+.tah-create-section-input {
     min-width: 220px;
+    appearance: none;
     border: none !important;
     background: transparent !important;
     box-shadow: none !important;
     outline: none !important;
-    font-weight: 600;
     color: inherit;
-    padding: 0;
+    padding: 0 !important;
+    padding-left: 0 !important;
+    text-indent: 0;
     margin: 0;
     font-size: inherit;
+    line-height: inherit;
 }
 
 .tah-local-title-input:focus {
@@ -387,13 +392,28 @@ body.login {
 }
 
 .tah-section-custom-content {
+    position: relative;
     overflow: hidden;
     padding: 0 10px 10px;
-    margin-top: 6px;
+    margin-top: 10px;
 }
 
-.tah-section-custom-content p:first-child {
-    margin-top: 0;
+.tah-section-custom-content textarea {
+    border: 1px solid #dcdcde;
+    padding-top: 20px;
+    padding-right: 28px;
+    padding-bottom: 12px;
+}
+
+.tah-custom-html-hint {
+    position: absolute;
+    right: 15px;
+    top: 10px;
+    font-size: 10px;
+    line-height: 1;
+    color: #646970;
+    letter-spacing: 0.03em;
+    pointer-events: none;
 }
 
 .tah-create-section-item {

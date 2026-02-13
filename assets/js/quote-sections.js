@@ -66,8 +66,8 @@
             '<span class="tah-mode-badge">' + escHtml(badgeLabel) + '</span>' +
             '</div>' +
             '<div class="tah-section-custom-content" style="display:none">' +
-            '<p><label>' + escHtml(labels.customHtml) + '</label></p>' +
-            '<textarea class="widefat" rows="5" name="tah_quote_section_content[' + safeKey + ']"></textarea>' +
+            '<textarea class="widefat" rows="5" aria-label="' + escHtml((labels && labels.sectionHtmlAria) || 'Section HTML') + '" name="tah_quote_section_content[' + safeKey + ']"></textarea>' +
+            '<span class="tah-custom-html-hint" aria-hidden="true">' + escHtml((labels && labels.sectionHtmlHint) || 'HTML') + '</span>' +
             '</div>' +
             '</li>';
     }
@@ -223,9 +223,10 @@
         }
 
         var selectedTrade = $('input[name="tah_trade_term_id"]:checked');
-        var hasTrade = parseInt(selectedTrade.val(), 10) > 0;
+        var hasTrade = selectedTrade.length && parseInt(selectedTrade.val(), 10) > 0;
 
-        $('.tah-quote-sections-tools button').prop('disabled', !hasTrade);
+        // Keep the actions toggle clickable; disable only menu action items.
+        $('.tah-actions-menu .tah-menu-item').prop('disabled', !hasTrade);
     }
 
     function refreshEmptyState() {
