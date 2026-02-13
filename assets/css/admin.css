@@ -301,7 +301,8 @@ body.login {
     margin-bottom: 0;
 }
 
-.tah-trade-section-disabled {
+.tah-trade-section-disabled,
+.tah-section-disabled {
     opacity: 0.5;
 }
 
