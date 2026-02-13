@@ -277,7 +277,7 @@ class TAH_Quote_Sections
                 'sectionHtmlHint' => __('HTML', 'the-artist'),
                 'customSectionTitlePlaceholder' => __('Custom Section Title', 'the-artist'),
                 'newSectionDefaultTitle' => __('Custom Section', 'the-artist'),
-                'emptyState' => __('No sections configured. Select a Trade above and click "Sync" to populate.', 'the-artist'),
+                'emptyState' => __('No sections configured. Select a Trade above to populate from a recipe.', 'the-artist'),
             ],
         ]);
     }
