@@ -59,10 +59,10 @@
             '</label>' +
             '<input type="hidden" class="tah-section-enabled-input" name="tah_quote_section_enabled[' + safeKey + ']" value="1">' +
             '<input type="hidden" class="tah-section-mode-input" name="tah_quote_section_mode[' + safeKey + ']" value="default">' +
+            '<button type="button" class="button-link tah-reset-section tah-icon-button" aria-label="' + escHtml(labels.resetToDefault) + '" title="' + escHtml(labels.resetToDefault) + '"><span class="dashicons dashicons-undo" aria-hidden="true"></span></button>' +
             '<button type="button" class="button-link tah-toggle-enabled tah-icon-button" aria-label="' + escHtml(toggleLabel) + '" title="' + escHtml(toggleLabel) + '"><span class="dashicons dashicons-visibility" aria-hidden="true"></span></button>' +
-            '<button type="button" class="button-link tah-delete-section" aria-label="' + escHtml((labels && labels.deleteSection) || 'Delete section') + '"><span class="lp-btn-icon dashicons dashicons-trash" aria-hidden="true"></span></button>' +
+            '<button type="button" class="button-link tah-delete-section" aria-label="' + escHtml((labels && labels.deleteSection) || 'Delete section') + '" title="' + escHtml((labels && labels.deleteSection) || 'Delete section') + '"><span class="lp-btn-icon dashicons dashicons-trash" aria-hidden="true"></span></button>' +
             '<button type="button" class="button-link tah-edit-section tah-icon-button" aria-label="' + escHtml((labels && labels.expand) || 'Expand') + '" title="' + escHtml((labels && labels.expand) || 'Expand') + '"><span class="dashicons dashicons-arrow-down-alt2" aria-hidden="true"></span></button>' +
-            '<button type="button" class="button-link tah-reset-section" style="display:none">' + escHtml(labels.resetToDefault) + '</button>' +
             '<span class="tah-mode-badge">' + escHtml(badgeLabel) + '</span>' +
             '</div>' +
             '<div class="tah-section-custom-content" style="display:none">' +
@@ -142,17 +142,21 @@
 
     function openEditor($item) {
         $item.find('.tah-section-custom-content').slideDown(120);
-        var isCustom = $item.find('.tah-section-mode-input').val() === 'custom' || hasCustomContent($item);
-        $item.find('.tah-reset-section').toggle(!isLocalSection($item) && isCustom);
+        updateModifiedState($item);
         var labels = (typeof tahQuoteSectionsConfig !== 'undefined' && tahQuoteSectionsConfig.labels) ? tahQuoteSectionsConfig.labels : {};
         setEditButtonState($item, true, labels);
     }
 
     function closeEditor($item) {
         $item.find('.tah-section-custom-content').slideUp(120);
-        $item.find('.tah-reset-section').hide();
         var labels = (typeof tahQuoteSectionsConfig !== 'undefined' && tahQuoteSectionsConfig.labels) ? tahQuoteSectionsConfig.labels : {};
         setEditButtonState($item, false, labels);
+    }
+
+    function updateModifiedState($item) {
+        var isCustom = $item.find('.tah-section-mode-input').val() === 'custom' || hasCustomContent($item);
+        var isModified = !isLocalSection($item) && isCustom;
+        $item.toggleClass('tah-section-modified', isModified);
     }
 
     function refreshToolsAndHeader() {
@@ -160,12 +164,9 @@
             return;
         }
 
-        var labels = tahQuoteSectionsConfig.labels || {};
         var selectedTrade = $('input[name="tah_trade_term_id"]:checked');
-        var tradeName = $.trim(selectedTrade.parent().text()) || (labels.none || 'None');
         var hasTrade = parseInt(selectedTrade.val(), 10) > 0;
 
-        $('.tah-quote-sections-header strong').text((labels.activeRecipePrefix || 'Active Recipe: ') + tradeName);
         $('.tah-quote-sections-tools button').prop('disabled', !hasTrade);
     }
 
@@ -306,6 +307,7 @@
             var $item = $(this).closest('.tah-quote-section-item');
             $item.find('.tah-section-custom-content textarea').val('');
             setSectionMode($item, 'default', labels);
+            updateModifiedState($item);
             closeEditor($item);
         });
 
@@ -333,13 +335,18 @@
             event.preventDefault();
             event.stopPropagation();
             var $dropdown = $(this).closest('.tah-actions-dropdown');
-            $dropdown.find('.tah-actions-menu').toggle();
+            var $menu = $dropdown.find('.tah-actions-menu');
+            $menu.toggle();
+            if (!$menu.is(':visible')) {
+                $(this).blur();
+            }
         });
 
         // Close dropdown when clicking outside
         $(document).on('click', function (event) {
             if (!$(event.target).closest('.tah-actions-dropdown').length) {
                 $('.tah-actions-menu').hide();
+                $('.tah-actions-toggle').blur();
             }
         });
 
@@ -350,14 +357,10 @@
 
             if (hasContent) {
                 setSectionMode($item, 'custom', labels);
-                if (!isLocalSection($item) && $item.find('.tah-section-custom-content').is(':visible')) {
-                    $item.find('.tah-reset-section').show();
-                }
-                return;
+            } else {
+                setSectionMode($item, 'default', labels);
             }
-
-            setSectionMode($item, 'default', labels);
-            $item.find('.tah-reset-section').hide();
+            updateModifiedState($item);
         });
 
         $(document).on('input', '#tah-create-section-input', function () {

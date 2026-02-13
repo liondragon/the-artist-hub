@@ -100,16 +100,11 @@ class TAH_Quote_Sections
         wp_nonce_field(self::NONCE_ACTION, self::NONCE_NAME);
 
         $active_trade = $this->get_active_trade_term((int) $post->ID);
-        $active_trade_name = $active_trade instanceof WP_Term ? $active_trade->name : __('None', 'the-artist');
         $has_active_trade = $active_trade instanceof WP_Term;
         $order = $this->get_render_order((int) $post->ID);
         $sections_map = $this->get_global_sections_map();
         $all_trade_terms = wp_get_post_terms((int) $post->ID, 'trade');
         $multi_trade_warning = !is_wp_error($all_trade_terms) && count($all_trade_terms) > 1;
-
-        echo '<div class="tah-quote-sections-header">';
-        echo '<strong>' . esc_html(sprintf(__('Active Recipe: %s', 'the-artist'), $active_trade_name)) . '</strong>';
-        echo '</div>';
 
         if ($multi_trade_warning) {
             echo '<p class="notice-inline notice-warning">';
@@ -119,8 +114,9 @@ class TAH_Quote_Sections
 
         echo '<div class="tah-quote-sections-tools">';
         echo '<div class="tah-actions-dropdown">';
-        echo '<button type="button" class="button tah-actions-toggle" aria-label="' . esc_attr__('Actions', 'the-artist') . '">';
-        echo '<span class="dashicons dashicons-ellipsis"></span>';
+        echo '<button type="button" class="tah-actions-toggle" aria-label="' . esc_attr__('Actions', 'the-artist') . '">';
+        echo '<span class="tah-actions-indicator" aria-hidden="true"></span>';
+        echo '<span class="screen-reader-text">' . esc_html__('Actions', 'the-artist') . '</span>';
         echo '</button>';
         echo '<div class="tah-actions-menu" style="display:none;">';
         echo '<button type="submit" class="tah-menu-item" name="' . esc_attr(self::FIELD_ACTION) . '" value="' . esc_attr(self::ACTION_SYNC) . '" ' . disabled(!$has_active_trade, true, false) . '>';
@@ -151,7 +147,11 @@ class TAH_Quote_Sections
             $is_local = $this->is_local_section_key($key);
             $title = isset($sections_map[$key]) ? $sections_map[$key]['title'] : $this->read_section_title((int) $post->ID, $key);
 
-            echo '<li class="tah-quote-section-item" data-key="' . esc_attr($key) . '">';
+            $item_classes = 'tah-quote-section-item';
+            if (!$is_local && $state['mode'] === self::MODE_CUSTOM) {
+                $item_classes .= ' tah-section-modified';
+            }
+            echo '<li class="' . esc_attr($item_classes) . '" data-key="' . esc_attr($key) . '">';
             echo '<div class="tah-quote-section-title-row">';
             echo '<span class="tah-drag-handle" aria-hidden="true"><svg viewBox="0 0 32 32" class="svg-icon"><path d="M 14 5.5 a 3 3 0 1 1 -3 -3 A 3 3 0 0 1 14 5.5 Z m 7 3 a 3 3 0 1 0 -3 -3 A 3 3 0 0 0 21 8.5 Z m -10 4 a 3 3 0 1 0 3 3 A 3 3 0 0 0 11 12.5 Z m 10 0 a 3 3 0 1 0 3 3 A 3 3 0 0 0 21 12.5 Z m -10 10 a 3 3 0 1 0 3 3 A 3 3 0 0 0 11 22.5 Z m 10 0 a 3 3 0 1 0 3 3 A 3 3 0 0 0 21 22.5 Z"></path></svg></span>';
             echo '<label class="tah-inline-enable">';
@@ -165,12 +165,13 @@ class TAH_Quote_Sections
             echo '<input type="hidden" class="tah-section-mode-input" name="' . esc_attr(self::FIELD_MODE) . '[' . esc_attr($key) . ']" value="' . esc_attr($state['mode']) . '">';
             $enabled_label = $state['enabled'] ? __('Hide section', 'the-artist') : __('Show section', 'the-artist');
             $enabled_icon = $state['enabled'] ? 'dashicons-visibility' : 'dashicons-hidden';
+            echo '<button type="button" class="button-link tah-reset-section tah-icon-button" aria-label="' . esc_attr__('Revert to Default', 'the-artist') . '" title="' . esc_attr__('Revert to Default', 'the-artist') . '">';
+            echo '<span class="dashicons dashicons-undo" aria-hidden="true"></span>';
+            echo '</button>';
             echo '<button type="button" class="button-link tah-toggle-enabled tah-icon-button" aria-label="' . esc_attr($enabled_label) . '" title="' . esc_attr($enabled_label) . '">';
             echo '<span class="dashicons ' . esc_attr($enabled_icon) . '" aria-hidden="true"></span>';
             echo '</button>';
-            $reset_style = ' style="display:none"';
-            echo '<button type="button" class="button-link tah-reset-section"' . $reset_style . '>' . esc_html__('Revert to Default', 'the-artist') . '</button>';
-            echo '<button type="button" class="button-link tah-delete-section" aria-label="' . esc_attr__('Delete section', 'the-artist') . '">';
+            echo '<button type="button" class="button-link tah-delete-section" aria-label="' . esc_attr__('Delete section', 'the-artist') . '" title="' . esc_attr__('Delete section', 'the-artist') . '">';
             echo '<span class="lp-btn-icon dashicons dashicons-trash" aria-hidden="true"></span>';
             echo '</button>';
             echo '<button type="button" class="button-link tah-edit-section tah-icon-button" aria-label="' . esc_attr__('Expand', 'the-artist') . '" title="' . esc_attr__('Expand', 'the-artist') . '">';
@@ -259,8 +260,6 @@ class TAH_Quote_Sections
             'tradePresets' => $preset_map,
             'sectionTitles' => $section_titles,
             'labels' => [
-                'activeRecipePrefix' => __('Active Recipe: ', 'the-artist'),
-                'none' => __('None', 'the-artist'),
                 'enabled' => __('Enabled', 'the-artist'),
                 'showSection' => __('Show section', 'the-artist'),
                 'hideSection' => __('Hide section', 'the-artist'),

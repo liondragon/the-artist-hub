@@ -169,10 +169,6 @@ body.login {
    Quote Sections Metabox
    ========================================================================== */
 
-.tah-quote-sections-header {
-    margin-bottom: 12px;
-}
-
 .tah-quote-sections-tools {
     margin-bottom: 12px;
     position: relative;
@@ -185,36 +181,39 @@ body.login {
     display: inline-block;
 }
 
-/* Toggle Button (Icon Style) */
+/* Toggle Button — matches WP .handle-order-higher / .handlediv */
 .tah-actions-toggle {
-    display: inline-flex !important;
+    display: flex !important;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 36px;
+    height: 36px;
     padding: 0 !important;
-    background: transparent !important;
+    margin: 0 !important;
+    background: none !important;
     border: none !important;
-    color: #72777c !important;
-    /* Standard WP icon color */
+    color: #787c82 !important;
     cursor: pointer;
     box-shadow: none !important;
     outline: none !important;
-    border-radius: 4px;
 }
 
 .tah-actions-toggle:hover,
 .tah-actions-toggle:focus {
-    color: #2271b1 !important;
-    /* WP Link Blue */
-    background: #f0f0f1 !important;
-    border-color: #8c8f94 !important;
+    color: #135e96 !important;
 }
 
-.tah-actions-toggle .dashicons {
-    font-size: 20px;
-    width: 20px;
-    height: 20px;
+/* Indicator — renders horizontal ellipsis */
+.tah-actions-indicator {
+    display: block;
+    font-size: 18px;
+    line-height: 1;
+    letter-spacing: 1px;
+}
+
+.tah-actions-indicator::before {
+    content: "\2022\2022\2022";
+    /* three bullet dots in a line */
 }
 
 .tah-actions-menu {
@@ -301,6 +300,15 @@ body.login {
     gap: 8px;
 }
 
+/* Revert button: hidden by default, shown on hover for modified sections */
+.tah-reset-section {
+    display: none !important;
+}
+
+.tah-section-modified:hover .tah-reset-section {
+    display: inline-flex !important;
+}
+
 .tah-inline-enable {
     display: inline-flex;
     align-items: center;
@@ -339,9 +347,11 @@ body.login {
     border-radius: 4px;
     background: #f0f0f1;
     color: #646970;
-    /* Push to the right */
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    min-width: 72px;
+    text-align: center;
+    box-sizing: border-box;
 }
 
 .tah-drag-handle {
