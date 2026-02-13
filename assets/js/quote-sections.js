@@ -97,9 +97,61 @@
         return $.trim(value || '').length > 0;
     }
 
+    function normalizeContentForCompare(value) {
+        return String(value || '')
+            .replace(/\r\n/g, '\n')
+            .replace(/\r/g, '\n')
+            .trim();
+    }
+
+    function getSectionKey($item) {
+        return String($item.data('key') || '');
+    }
+
     function isLocalSection($item) {
-        var key = String($item.data('key') || '');
+        var key = getSectionKey($item);
         return key.indexOf('local_') === 0;
+    }
+
+    function getDefaultContentForItem($item) {
+        if (typeof tahQuoteSectionsConfig === 'undefined') {
+            return '';
+        }
+
+        var key = getSectionKey($item);
+        var sectionContents = tahQuoteSectionsConfig.sectionContents || {};
+        if (!Object.prototype.hasOwnProperty.call(sectionContents, key)) {
+            return '';
+        }
+
+        return String(sectionContents[key] || '');
+    }
+
+    function ensureDefaultEditorContent($item) {
+        if (isLocalSection($item)) {
+            return;
+        }
+
+        var mode = String($item.find('.tah-section-mode-input').val() || 'default');
+        if (mode !== 'default') {
+            return;
+        }
+
+        $item.find('.tah-section-custom-content textarea').val(getDefaultContentForItem($item));
+    }
+
+    function isEffectivelyCustom($item) {
+        if (isLocalSection($item)) {
+            return hasCustomContent($item);
+        }
+
+        var current = normalizeContentForCompare($item.find('.tah-section-custom-content textarea').val());
+        var baseline = normalizeContentForCompare(getDefaultContentForItem($item));
+        if (current === '') {
+            return false;
+        }
+
+        return current !== baseline;
     }
 
     function setEnabledButtonState($item, enabled, labels) {
@@ -141,9 +193,10 @@
     }
 
     function openEditor($item) {
+        ensureDefaultEditorContent($item);
         $item.find('.tah-section-custom-content').slideDown(120);
-        updateModifiedState($item);
         var labels = (typeof tahQuoteSectionsConfig !== 'undefined' && tahQuoteSectionsConfig.labels) ? tahQuoteSectionsConfig.labels : {};
+        updateModifiedState($item, labels);
         setEditButtonState($item, true, labels);
     }
 
@@ -153,10 +206,15 @@
         setEditButtonState($item, false, labels);
     }
 
-    function updateModifiedState($item) {
-        var isCustom = $item.find('.tah-section-mode-input').val() === 'custom' || hasCustomContent($item);
+    function updateModifiedState($item, labels) {
+        var resolvedLabels = labels || ((typeof tahQuoteSectionsConfig !== 'undefined' && tahQuoteSectionsConfig.labels) ? tahQuoteSectionsConfig.labels : {});
+        var isCustom = isEffectivelyCustom($item);
+        setSectionMode($item, isCustom ? 'custom' : 'default', resolvedLabels);
         var isModified = !isLocalSection($item) && isCustom;
         $item.toggleClass('tah-section-modified', isModified);
+        if ($item.find('.tah-section-custom-content').is(':visible')) {
+            $item.find('.tah-reset-section').toggle(!isLocalSection($item) && isCustom);
+        }
     }
 
     function refreshToolsAndHeader() {
@@ -305,10 +363,17 @@
         $(document).on('click', '.tah-reset-section', function () {
             var labels = (typeof tahQuoteSectionsConfig !== 'undefined' && tahQuoteSectionsConfig.labels) ? tahQuoteSectionsConfig.labels : {};
             var $item = $(this).closest('.tah-quote-section-item');
-            $item.find('.tah-section-custom-content textarea').val('');
-            setSectionMode($item, 'default', labels);
-            updateModifiedState($item);
-            closeEditor($item);
+            if (isLocalSection($item)) {
+                $item.find('.tah-section-custom-content textarea').val('');
+            } else {
+                $item.find('.tah-section-custom-content textarea').val(getDefaultContentForItem($item));
+            }
+            updateModifiedState($item, labels);
+            if ($item.find('.tah-section-custom-content').is(':visible')) {
+                setEditButtonState($item, true, labels);
+            } else {
+                closeEditor($item);
+            }
         });
 
         $(document).on('click', '.tah-toggle-enabled', function (event) {
@@ -353,14 +418,7 @@
         $(document).on('input', '.tah-section-custom-content textarea', function () {
             var labels = (typeof tahQuoteSectionsConfig !== 'undefined' && tahQuoteSectionsConfig.labels) ? tahQuoteSectionsConfig.labels : {};
             var $item = $(this).closest('.tah-quote-section-item');
-            var hasContent = hasCustomContent($item);
-
-            if (hasContent) {
-                setSectionMode($item, 'custom', labels);
-            } else {
-                setSectionMode($item, 'default', labels);
-            }
-            updateModifiedState($item);
+            updateModifiedState($item, labels);
         });
 
         $(document).on('input', '#tah-create-section-input', function () {

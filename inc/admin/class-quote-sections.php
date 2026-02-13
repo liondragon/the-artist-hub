@@ -252,13 +252,16 @@ class TAH_Quote_Sections
 
         $sections_map = $this->get_global_sections_map();
         $section_titles = [];
+        $section_contents = [];
         foreach ($sections_map as $key => $row) {
             $section_titles[$key] = (string) $row['title'];
+            $section_contents[$key] = (string) $row['content'];
         }
 
         wp_localize_script('tah-quote-sections', 'tahQuoteSectionsConfig', [
             'tradePresets' => $preset_map,
             'sectionTitles' => $section_titles,
+            'sectionContents' => $section_contents,
             'labels' => [
                 'enabled' => __('Enabled', 'the-artist'),
                 'showSection' => __('Show section', 'the-artist'),
@@ -416,6 +419,7 @@ class TAH_Quote_Sections
 
         if (isset($_POST[self::FIELD_MODE]) && is_array($_POST[self::FIELD_MODE])) {
             $modes = wp_unslash($_POST[self::FIELD_MODE]);
+            $sections_map = $this->get_global_sections_map();
             foreach ($modes as $key => $mode) {
                 $section_key = sanitize_key((string) $key);
                 if ($section_key === '') {
@@ -437,8 +441,20 @@ class TAH_Quote_Sections
                     $content = '';
                 }
 
+                // If override content resolves to the same global default, keep section in default mode.
+                if (
+                    $normalized_mode === self::MODE_CUSTOM &&
+                    isset($sections_map[$section_key]) &&
+                    $this->normalize_content_for_compare($content) === $this->normalize_content_for_compare((string) $sections_map[$section_key]['content'])
+                ) {
+                    $normalized_mode = self::MODE_DEFAULT;
+                    $content = '';
+                }
+
                 update_post_meta($post_id, $this->meta_key_mode($section_key), $normalized_mode);
-                if (array_key_exists($key, $content_items)) {
+                if ($normalized_mode === self::MODE_DEFAULT) {
+                    delete_post_meta($post_id, $this->meta_key_content($section_key));
+                } elseif (array_key_exists($key, $content_items)) {
                     update_post_meta($post_id, $this->meta_key_content($section_key), $content);
                 }
             }
@@ -883,6 +899,13 @@ class TAH_Quote_Sections
     private function is_local_section_key($section_key)
     {
         return strpos((string) $section_key, self::LOCAL_SECTION_PREFIX) === 0;
+    }
+
+    private function normalize_content_for_compare($value)
+    {
+        $content = (string) $value;
+        $content = str_replace(["\r\n", "\r"], "\n", $content);
+        return trim($content);
     }
 }
 
