@@ -24,6 +24,8 @@ include_once __DIR__ . '/inc/notes_function.php';
 include_once __DIR__ . '/inc/editor-config.php';
 include_once __DIR__ . '/inc/editor-filters.php';
 include_once __DIR__ . '/inc/search-filters.php';
+require_once __DIR__ . '/inc/modules/class-module-registry.php';
+TAH_Module_Registry::boot();
 include_once __DIR__ . '/inc/admin.php';
 include_once __DIR__ . '/inc/users.php';
 

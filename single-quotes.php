@@ -130,7 +130,9 @@
 					<article id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
 							<div class="entry-content pricing">
 								<?php the_content(); ?>
-								<?php tah_render_quote_sections(get_the_ID()); ?>
+								<?php if (function_exists('tah_render_quote_sections')) {
+									tah_render_quote_sections(get_the_ID());
+								} ?>
 							</div><!-- .entry-content -->
 						</article><!-- #post -->
 					<?php endwhile; // end of the loop. ?>

@@ -7,6 +7,7 @@ When the user asks for your opinion on an idea (including feedback from others),
 - **Operator preferences (optional):** If `AGENTS_LOCAL.md` exists, use it for communication style, risk callouts, and confirmation gates only; it MUST NOT override `AGENTS.md` invariants, spec authority, safety rules, or tool/sandbox constraints.
 - **Stack conventions (optional):** Follow the repo's documented stack conventions (linting, security hygiene, i18n, framework patterns); do not invent a new stack.
 - **Stack guide (optional):** If a stack-specific guide exists (for example under `agent_docs/stacks/`), load it for language/framework conventions; otherwise follow existing in-repo patterns.
+- - **Repo technical guide:** Read `docs/Developer_Guide.md` for module registry, file map, and common gotchas when working in this codebase.
 
 ## 1. Hierarchy & Authority
 - **AGENTS.md** (this file) is the root operational guide.
