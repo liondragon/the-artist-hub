@@ -71,9 +71,9 @@
 
 - [ ] **Implement pricing catalog admin page** (Spec: §Admin UX — Pricing Catalog Admin, §Quote Formats — Catalog Partitioning)
   - Artifacts: `inc/modules/pricing/class-pricing-catalog-admin.php`
-  - Interfaces: WP admin menu page under "Quotes" menu. Tabs or filter to switch between standard and insurance catalog views. Add/edit/deactivate catalog items. Trade assignment dropdown (filtered by `_tah_trade_context`). Price history display.
+  - Interfaces: WP admin menu page under "Quotes" menu. Tabs or filter to switch between standard and insurance catalog views. Add/edit/deactivate catalog items. Trade assignment dropdown (filtered by `_tah_trade_context` when set; defaults to showing all trades until Phase 6 adds the trade context UI). Price history display.
   - Depends On: Phase 0 (repository + tables)
-  - Done When: Admin can CRUD pricing items in both catalogs. Catalog view filters by `catalog_type`. Trade dropdown shows only trades matching the active catalog type. `is_active` toggle works. Editing `unit_price` appends to `price_history` JSON.
+  - Done When: Admin can CRUD pricing items in both catalogs. Catalog view filters by `catalog_type`. Trade dropdown populated from `trade` taxonomy (trade context filtering wired but all trades default to visible until context meta is set in Phase 6). `is_active` toggle works. Editing `unit_price` appends to `price_history` JSON.
 
 - [ ] **Implement price formula parser** (Spec: §Price Modification Model)
   - Artifacts: `inc/modules/pricing/class-price-formula.php`
@@ -154,11 +154,11 @@
 
 ## Phase 4 — Trade Pricing Presets
 
-**Goals:** Allow trades to define default groups and items that auto-populate when a trade is selected on a new quote.
+**Goals:** Allow standard-format trades to define default groups and items that auto-populate when a trade is selected on a new quote.
 
-**Non-Goals:** No cron. No email. Presets include both groups and items.
+**Non-Goals:** No cron. No email. No insurance format support (insurance has no groups). Presets include both groups and items.
 
-**Acceptance:** Selecting a trade on a new quote populates default pricing groups (and optionally items). Missing SKUs are skipped with admin notice. Existing quotes are not affected.
+**Acceptance:** Selecting a standard-format trade on a new quote populates default pricing groups and items. Missing SKUs are skipped with admin notice. Existing quotes are not affected.
 
 ### Tasks
 
@@ -191,12 +191,12 @@
   - Artifacts: `inc/modules/pricing/class-pricing-cron.php`
   - Interfaces: WP-Cron scheduled event (`tah_pricing_update`). Hook: `tah_cron_frequency` setting. Per-quote independent processing.
   - Depends On: Phase 0 (repository), Phase 1 (formula engine)
-  - Done When: Cron finds all quotes with stale `_tah_prices_resolved_at`, skips locked quotes, stores old `resolved_price` to `previous_resolved_price`, recalculates `resolved_price`, updates `_tah_prices_resolved_at`. Email sending deferred — cron only logs affected quote IDs. `_tah_cron_last_run`, `_tah_cron_last_status`, `_tah_cron_quotes_updated` options set.
+  - Done When: Cron finds all quotes with stale `_tah_prices_resolved_at`, skips locked quotes, stores old `resolved_price` to `previous_resolved_price`, recalculates `resolved_price`, sets `_tah_lock_offer_expires_at` to `now + 3 days` on changed quotes, updates `_tah_prices_resolved_at`. Email sending deferred — cron only logs affected quote IDs. Observability options set: `_tah_cron_last_run`, `_tah_cron_last_status` (`success`/`partial`/`error`), `_tah_cron_quotes_updated`, `_tah_cron_last_errors` (array of quote IDs + error messages). Each quote processed independently — one failure doesn't block others.
 
 - [ ] **Implement price lock endpoint** (Spec: §Cron — Price Locking)
   - Artifacts: Same cron file or separate handler
   - Interfaces: `?action=tah_lock_price&quote_id=X&token=Y` public URL. Token = `wp_hash(quote_id . post_date)`.
-  - Done When: Valid token **reverts** `resolved_price` to `previous_resolved_price` for all affected line items, sets `_tah_price_locked_until` to `now + 3 days`. After lock expires, next cron run recalculates at current catalog prices. Expired/invalid tokens show friendly message with link to current quote.
+  - Done When: Checks `_tah_lock_offer_expires_at` — if expired, shows friendly "offer expired" message with link to current quote. If valid, **reverts** `resolved_price` to `previous_resolved_price` for all affected line items, sets `_tah_price_locked_until` to `_tah_lock_offer_expires_at` (remaining offer window). After lock expires, next cron run recalculates at current catalog prices. Invalid tokens show error.
 
 - [ ] **Add Global Pricing Settings page** (Spec: §Global Pricing Settings)
   - Artifacts: `inc/modules/pricing/class-pricing-settings.php`

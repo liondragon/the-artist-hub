@@ -200,20 +200,23 @@ A scheduled task (WP-Cron or real cron) runs periodically (configurable, **daily
 2. Skips quotes with an active price lock (`_tah_price_locked_until` > now)
 3. Stores current `resolved_price` → `previous_resolved_price` on each affected line item
 4. Recalculates `resolved_price` for each affected line item using current catalog pricing + the line item's `price_mode`/`price_modifier`
-5. Updates `_tah_prices_resolved_at` on the quote
-6. Logs the update (affected quote IDs, number of items recalculated) — **email sending is deferred** until the email module exists (Phase 2/3). The `previous_resolved_price` data is stored so emails can reference old vs. new pricing when ready.
+5. Sets `_tah_lock_offer_expires_at` to `now + 3 days` on quotes whose prices changed — this is the window within which the customer can click the lock link to revert to old prices
+6. Updates `_tah_prices_resolved_at` on the quote
+7. Logs the update (affected quote IDs, number of items recalculated) — **email sending is deferred** until the email module exists (Phase 2/3). The `previous_resolved_price` data is stored so emails can reference old vs. new pricing when ready.
+8. Sets `_tah_cron_last_run`, `_tah_cron_last_status` (`success`, `partial`, or `error`), `_tah_cron_quotes_updated`, and `_tah_cron_last_errors` (array of quote IDs + error messages) as WP options
 
 > [!NOTE]
 > Totals (line totals, group subtotals, grand total) are **computed on-the-fly** at render time — `SUM(quantity × resolved_price)` per group. No stored totals to invalidate.
 
 ### Price Locking
 - Link format: `?action=tah_lock_price&quote_id=123&token=xyz` (token = `wp_hash(quote_id . post_date)` — simple hash, not cryptographic; worst case is a free price lock)
-- Clicking the link **reverts** `resolved_price` to `previous_resolved_price` for all affected line items on the quote, honoring the pre-update prices
-- Sets `_tah_price_locked_until` (post meta) to `now + 3 days`
+- **Lock offer window:** The link is only valid while `_tah_lock_offer_expires_at > now`. This meta is set by the cron to `now + 3 days` when prices change. If the customer clicks after this window, they see the "offer expired" message.
+- Clicking the link (within the window) **reverts** `resolved_price` to `previous_resolved_price` for all affected line items on the quote, honoring the pre-update prices
+- Sets `_tah_price_locked_until` (post meta) to `_tah_lock_offer_expires_at` (the remaining time in the offer window)
 - While locked, the cron skips this quote — prices stay at the reverted (old) values
 - After lock expires and quote is not accepted, the next cron run recalculates all prices at whatever the current catalog prices are
 - Formula relationships (`$+150`, `$*1.1`) are preserved throughout — no data is lost
-- If clicked after expiry: friendly message explaining the offer expired, with link to current quote
+- If clicked after `_tah_lock_offer_expires_at`: friendly message explaining the offer expired, with link to current quote
 
 ### WP-Cron Reliability
 - WP-Cron is triggered by site visits and is unreliable on low-traffic sites. For production, configure a **real system crontab** (`wp cron event run --due-now`) to ensure consistent execution.
@@ -264,6 +267,9 @@ Rounding is applied to the **resolved price** after all formula computation. Exa
 - Selecting a suggestion populates title, description, unit_type, and unit_price
 
 ### Trade Pricing Presets
+
+> [!NOTE]
+> Trade pricing presets apply to **standard-format quotes only**. Insurance quotes use a flat item list with no groups, so presets are not applicable.
 
 Stored as JSON on trade term meta (key: `_tah_trade_pricing_preset`), consistent with how `_tah_trade_default_sections` already works for info sections.
 
