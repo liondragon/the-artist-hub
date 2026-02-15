@@ -34,6 +34,12 @@ body.tah-quote-editor-enabled .wrap h1.wp-heading-inline {
     gap: 8px;
 }
 
+#tah-quote-editor .tah-quote-editor-view-summary {
+    color: #475467;
+    font-size: 12px;
+    font-weight: 600;
+}
+
 #tah-quote-editor .tah-quote-editor-header-main {
     display: flex;
     flex-direction: column;
@@ -73,6 +79,16 @@ body.tah-quote-editor-enabled .wrap h1.wp-heading-inline {
     display: flex;
     flex-direction: column;
     gap: 16px;
+}
+
+#tah-quote-editor .tah-quote-editor-notes {
+    padding: 14px;
+}
+
+#tah-quote-editor .tah-sidebar-heading {
+    color: #101828;
+    font-size: 14px;
+    margin: 0 0 6px;
 }
 
 #tah-quote-editor .tah-quote-editor-slot:empty {
@@ -347,6 +363,23 @@ body.tah-quote-editor-enabled .wrap h1.wp-heading-inline {
     background: #f2f4f7;
     border: 1px dashed #98a2b3;
     height: 40px;
+}
+
+.ui-autocomplete .tah-pricing-suggest-item {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.ui-autocomplete .tah-pricing-suggest-title {
+    color: #101828;
+}
+
+.ui-autocomplete .tah-pricing-suggest-price {
+    color: #475467;
+    font-size: 12px;
+    white-space: nowrap;
 }
 
 @media (max-width: 1100px) {

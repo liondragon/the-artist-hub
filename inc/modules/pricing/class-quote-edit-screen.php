@@ -13,6 +13,9 @@ final class TAH_Quote_Edit_Screen
     const POST_TYPE = 'quotes';
     const DUPLICATE_ACTION = 'tah_duplicate_quote';
     const DUPLICATE_NONCE_ACTION = 'tah_duplicate_quote';
+    const NOTES_NONCE_ACTION = 'tah_quote_admin_notes_save';
+    const NOTES_NONCE_NAME = '_tah_quote_admin_notes_nonce';
+    const NOTES_META_KEY = '_tah_quote_admin_notes';
 
     public function __construct()
     {
@@ -21,6 +24,7 @@ final class TAH_Quote_Edit_Screen
         add_action('admin_enqueue_scripts', [$this, 'enqueue_assets']);
         add_filter('admin_body_class', [$this, 'add_body_class']);
         add_action('admin_post_' . self::DUPLICATE_ACTION, [$this, 'handle_duplicate_quote']);
+        add_action('save_post_' . self::POST_TYPE, [$this, 'save_admin_notes'], 40, 3);
     }
 
     /**
@@ -59,6 +63,8 @@ final class TAH_Quote_Edit_Screen
         $quote_format = $quote_format !== '' ? $quote_format : 'standard';
         $status = get_post_status_object((string) $post->post_status);
         $status_label = $status ? (string) $status->label : (string) $post->post_status;
+        $view_tracking_summary = $this->get_view_tracking_summary((int) $post->ID);
+        $admin_notes = (string) get_post_meta((int) $post->ID, self::NOTES_META_KEY, true);
 
         echo '<div id="tah-quote-editor">';
 
@@ -75,6 +81,11 @@ final class TAH_Quote_Edit_Screen
         echo '<span class="tah-badge tah-badge--neutral">' . esc_html(sprintf(__('Status: %s', 'the-artist'), $status_label)) . '</span>';
         echo '<span class="tah-badge tah-badge--neutral">' . esc_html(sprintf(__('Trade: %s', 'the-artist'), $trade_name)) . '</span>';
         echo '</div>';
+        if ($view_tracking_summary !== '') {
+            echo '<div class="tah-quote-editor-header-row">';
+            echo '<span class="tah-quote-editor-view-summary">' . esc_html($view_tracking_summary) . '</span>';
+            echo '</div>';
+        }
         echo '<div class="tah-quote-editor-header-meta">';
         echo '<div id="tah-quote-editor-header-customer" class="tah-quote-editor-slot"></div>';
         echo '<div id="tah-quote-editor-header-trade" class="tah-quote-editor-slot"></div>';
@@ -95,6 +106,12 @@ final class TAH_Quote_Edit_Screen
 
         echo '<aside class="tah-quote-editor-sidebar">';
         echo '<div id="tah-quote-editor-sidebar-sections" class="tah-quote-editor-slot"></div>';
+        echo '<section id="tah-quote-editor-sidebar-notes" class="tah-card tah-quote-editor-notes">';
+        echo '<h3 class="tah-sidebar-heading">' . esc_html__('Admin Notes', 'the-artist') . '</h3>';
+        echo '<p class="description">' . esc_html__('Internal only. Never shown on customer quote pages.', 'the-artist') . '</p>';
+        wp_nonce_field(self::NOTES_NONCE_ACTION, self::NOTES_NONCE_NAME);
+        echo '<textarea name="' . esc_attr(self::NOTES_META_KEY) . '" class="widefat" rows="6" placeholder="' . esc_attr__('Add private notes for your team...', 'the-artist') . '">' . esc_textarea($admin_notes) . '</textarea>';
+        echo '</section>';
         echo '<div id="tah-quote-editor-sidebar-publish" class="tah-quote-editor-slot"></div>';
         echo '</aside>';
 
@@ -200,6 +217,38 @@ JS;
             : (string) __('Not set', 'the-artist');
     }
 
+    private function get_view_tracking_summary(int $post_id): string
+    {
+        $view_count = (int) get_post_meta($post_id, '_tah_quote_view_count', true);
+        if ($view_count <= 0) {
+            return '';
+        }
+
+        $summary = sprintf(
+            /* translators: %d is the quote view count. */
+            _n('Viewed %d time', 'Viewed %d times', $view_count, 'the-artist'),
+            $view_count
+        );
+
+        $last_viewed = (string) get_post_meta($post_id, '_tah_quote_last_viewed_at', true);
+        if ($last_viewed === '') {
+            return $summary;
+        }
+
+        $timestamp = strtotime($last_viewed);
+        if ($timestamp === false) {
+            return $summary;
+        }
+
+        $summary .= ' • ' . sprintf(
+            /* translators: %s is localized datetime string. */
+            __('Last viewed %s', 'the-artist'),
+            wp_date('M j \a\t g:i A', $timestamp)
+        );
+
+        return $summary;
+    }
+
     /**
      * Duplicate quote post + pricing data and redirect to the new draft.
      */
@@ -245,6 +294,39 @@ JS;
 
         wp_safe_redirect(admin_url('post.php?post=' . $new_quote_id . '&action=edit'));
         exit;
+    }
+
+    /**
+     * Save admin-only quote notes meta.
+     *
+     * @param int     $post_id
+     * @param WP_Post $post
+     * @param bool    $update
+     */
+    public function save_admin_notes($post_id, $post, $update): void
+    {
+        if (!$post instanceof WP_Post || $post->post_type !== self::POST_TYPE) {
+            return;
+        }
+
+        if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id)) {
+            return;
+        }
+
+        if (!current_user_can('edit_post', $post_id)) {
+            return;
+        }
+
+        $nonce = isset($_POST[self::NOTES_NONCE_NAME]) ? sanitize_text_field(wp_unslash((string) $_POST[self::NOTES_NONCE_NAME])) : '';
+        if ($nonce === '' || !wp_verify_nonce($nonce, self::NOTES_NONCE_ACTION)) {
+            return;
+        }
+
+        $notes = isset($_POST[self::NOTES_META_KEY])
+            ? sanitize_textarea_field(wp_unslash((string) $_POST[self::NOTES_META_KEY]))
+            : '';
+
+        update_post_meta((int) $post_id, self::NOTES_META_KEY, $notes);
     }
 
     private function build_duplicate_url(int $quote_id): string

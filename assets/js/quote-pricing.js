@@ -7,6 +7,8 @@
     var roundingDirection = String(config.roundingDirection || 'nearest');
     var ajaxUrl = String(config.ajaxUrl || '');
     var ajaxAction = String(config.ajaxAction || 'tah_save_pricing');
+    var ajaxSearchAction = String(config.ajaxSearchAction || 'tah_search_pricing_items');
+    var ajaxApplyPresetAction = String(config.ajaxApplyPresetAction || 'tah_apply_trade_pricing_preset');
     var ajaxNonce = String(config.ajaxNonce || '');
 
     var groupCounter = 1;
@@ -180,9 +182,15 @@
         var title = escHtml(data.title == null ? '' : data.title);
         var description = escHtml(data.description || '');
         var qty = normalizeNumber(data.quantity, 1);
+        var pricingItemId = parseInt(String(data.pricingItemId || 0), 10) || 0;
+        var unitType = escHtml(data.unitType || 'flat');
+        var itemType = escHtml(data.itemType || 'standard');
+        var catalogPrice = normalizeNumber(data.catalogPrice, 0);
         var rateResolved = normalizeNumber(data.resolvedPrice, 0);
-        var rateFormula = escHtml(data.rateFormula || compactNumber(rateResolved));
+        var rateFormulaRaw = String(data.rateFormula || (pricingItemId > 0 ? '$' : compactNumber(rateResolved)));
+        var rateFormula = escHtml(rateFormulaRaw);
         var qtyFormula = escHtml(data.qtyFormula || compactNumber(qty));
+        var badgeMeta = rateBadge(parseRateFormula(rateFormulaRaw).mode, pricingItemId);
 
         return '' +
             '<tr class="tah-line-item-row" data-item-id="0">' +
@@ -191,9 +199,9 @@
             '<td class="tah-cell-item">' +
             '<input type="text" class="tah-form-control tah-line-title" value="' + title + '" placeholder="Line item">' +
             '<input type="hidden" class="tah-line-id" value="0">' +
-            '<input type="hidden" class="tah-line-pricing-item-id" value="0">' +
-            '<input type="hidden" class="tah-line-item-type" value="standard">' +
-            '<input type="hidden" class="tah-line-unit-type" value="flat">' +
+            '<input type="hidden" class="tah-line-pricing-item-id" value="' + escHtml(String(pricingItemId)) + '">' +
+            '<input type="hidden" class="tah-line-item-type" value="' + itemType + '">' +
+            '<input type="hidden" class="tah-line-unit-type" value="' + unitType + '">' +
             '<input type="hidden" class="tah-line-is-selected" value="1">' +
             '<input type="hidden" class="tah-line-material-cost" value="">' +
             '<input type="hidden" class="tah-line-labor-cost" value="">' +
@@ -207,8 +215,8 @@
             '<td class="tah-cell-rate">' +
             '<div class="tah-rate-field">' +
             '<input type="text" class="tah-form-control tah-line-rate" value="' + escHtml(formatCurrency(rateResolved)) + '" data-formula="' + rateFormula + '" data-resolved="' + compactNumber(rateResolved) + '">' +
-            '<span class="tah-badge tah-badge--custom tah-line-rate-badge">' + escHtml(labels.customBadge || 'CUSTOM') + '</span>' +
-            '<input type="hidden" class="tah-line-catalog-price" value="0">' +
+            '<span class="tah-badge ' + escHtml(badgeMeta.cls) + ' tah-line-rate-badge">' + escHtml(badgeMeta.label) + '</span>' +
+            '<input type="hidden" class="tah-line-catalog-price" value="' + escHtml(compactNumber(catalogPrice)) + '">' +
             '</div>' +
             '</td>' +
             '<td class="tah-cell-amount"><span class="tah-line-amount" data-amount="' + compactNumber(qty * rateResolved) + '">' + escHtml(formatCurrency(qty * rateResolved)) + '</span></td>' +
@@ -217,38 +225,213 @@
             '</tr>';
     }
 
-    function buildGroupHtml(groupKey) {
-        var groupName = escHtml(labels.groupDefaultName || 'New Group');
+    function buildGroupHtml(groupKey, groupData) {
+        var group = groupData || {};
+        var groupName = escHtml(group.name || labels.groupDefaultName || 'New Group');
+        var groupDescription = escHtml(group.description || '');
+        var selectionMode = String(group.selectionMode || 'all');
+        if (['all', 'multi', 'single'].indexOf(selectionMode) === -1) {
+            selectionMode = 'all';
+        }
+        var showSubtotal = group.showSubtotal !== false;
+        var isCollapsed = !!group.isCollapsed;
+        var toggleLabel = isCollapsed ? 'Expand group' : 'Collapse group';
+        var toggleIcon = isCollapsed ? 'dashicons-arrow-down-alt2' : 'dashicons-arrow-up-alt2';
+        var rowsHtml = '';
+        var items = Array.isArray(group.items) ? group.items : [];
+
+        if (!items.length) {
+            rowsHtml = buildRowHtml({ title: '', quantity: 1, resolvedPrice: 0, rateFormula: '0', qtyFormula: '1' });
+        } else {
+            rowsHtml = items.map(function (item) {
+                return buildRowHtml({
+                    title: item.title || '',
+                    description: item.description || '',
+                    quantity: item.quantity,
+                    resolvedPrice: item.resolvedPrice,
+                    rateFormula: item.rateFormula || '$',
+                    qtyFormula: compactNumber(normalizeNumber(item.quantity, 1)),
+                    pricingItemId: item.pricingItemId || 0,
+                    unitType: item.unitType || 'flat',
+                    catalogPrice: item.catalogPrice || 0,
+                    itemType: item.itemType || 'standard'
+                });
+            }).join('');
+        }
+        var subtotalHiddenClass = showSubtotal ? '' : ' style="display:none;"';
+        var groupClasses = isCollapsed ? 'tah-group-card is-collapsed' : 'tah-group-card';
 
         return '' +
-            '<section class="tah-group-card" data-group-id="0" data-group-key="' + escHtml(groupKey) + '">' +
+            '<section class="' + groupClasses + '" data-group-id="0" data-group-key="' + escHtml(groupKey) + '">' +
             '<header class="tah-group-header">' +
             '<div class="tah-group-title-row">' +
             '<span class="tah-drag-handle tah-group-handle" aria-hidden="true">' + dragHandleSvg() + '</span>' +
             '<input type="text" class="tah-form-control tah-group-name" value="' + groupName + '" placeholder="Group name">' +
             '<div class="tah-group-actions">' +
-            '<button type="button" class="tah-icon-button tah-toggle-group" aria-label="Collapse group" title="Collapse group"><span class="dashicons dashicons-arrow-up-alt2" aria-hidden="true"></span></button>' +
+            '<button type="button" class="tah-icon-button tah-toggle-group" aria-label="' + toggleLabel + '" title="' + toggleLabel + '"><span class="dashicons ' + toggleIcon + '" aria-hidden="true"></span></button>' +
             '<button type="button" class="tah-icon-button tah-icon-button--danger tah-delete-group" aria-label="Delete group" title="Delete group"><span class="dashicons dashicons-trash" aria-hidden="true"></span></button>' +
             '</div>' +
             '</div>' +
             '<div class="tah-group-settings">' +
-            '<input type="text" class="tah-form-control tah-group-description" value="" placeholder="Group description (optional)">' +
-            '<label class="tah-group-setting">Selection <select class="tah-form-control tah-group-selection-mode"><option value="all">All</option><option value="multi">Multi</option><option value="single">Single</option></select></label>' +
-            '<label class="tah-inline-checkbox"><input type="checkbox" class="tah-group-show-subtotal" checked> Show subtotal</label>' +
-            '<label class="tah-inline-checkbox"><input type="checkbox" class="tah-group-collapsed"> Start collapsed</label>' +
+            '<input type="text" class="tah-form-control tah-group-description" value="' + groupDescription + '" placeholder="Group description (optional)">' +
+            '<label class="tah-group-setting">Selection <select class="tah-form-control tah-group-selection-mode">' +
+            '<option value="all"' + (selectionMode === 'all' ? ' selected' : '') + '>All</option>' +
+            '<option value="multi"' + (selectionMode === 'multi' ? ' selected' : '') + '>Multi</option>' +
+            '<option value="single"' + (selectionMode === 'single' ? ' selected' : '') + '>Single</option>' +
+            '</select></label>' +
+            '<label class="tah-inline-checkbox"><input type="checkbox" class="tah-group-show-subtotal"' + (showSubtotal ? ' checked' : '') + '> Show subtotal</label>' +
+            '<label class="tah-inline-checkbox"><input type="checkbox" class="tah-group-collapsed"' + (isCollapsed ? ' checked' : '') + '> Start collapsed</label>' +
             '</div>' +
             '</header>' +
             '<div class="tah-group-table-wrap">' +
             '<table class="tah-pricing-table-editor">' +
             '<thead><tr><th class="tah-col-handle"></th><th class="tah-col-index">#</th><th class="tah-col-item">Item</th><th class="tah-col-description">Description</th><th class="tah-col-qty">Qty</th><th class="tah-col-rate">Rate</th><th class="tah-col-amount">Amount</th><th class="tah-col-margin">Margin</th><th class="tah-col-actions"></th></tr></thead>' +
-            '<tbody class="tah-line-items-body">' + buildRowHtml({ title: '', quantity: 1, resolvedPrice: 0, rateFormula: '0', qtyFormula: '1' }) + '</tbody>' +
+            '<tbody class="tah-line-items-body">' + rowsHtml + '</tbody>' +
             '</table>' +
             '<div class="tah-group-footer">' +
             '<button type="button" class="button button-secondary tah-add-line-item">+ Add Item</button>' +
-            '<div class="tah-group-subtotal-row"><span class="tah-group-subtotal-label">Subtotal</span><strong class="tah-group-subtotal-value">$0.00</strong></div>' +
+            '<div class="tah-group-subtotal-row"' + subtotalHiddenClass + '><span class="tah-group-subtotal-label">Subtotal</span><strong class="tah-group-subtotal-value">$0.00</strong></div>' +
             '</div>' +
             '</div>' +
             '</section>';
+    }
+
+    function hasPopulatedEditorRows() {
+        var hasRows = false;
+
+        $('#tah-pricing-groups .tah-line-item-row').each(function () {
+            var $row = $(this);
+            var title = String($row.find('.tah-line-title').val() || '').trim();
+            if (title !== '') {
+                hasRows = true;
+                return false;
+            }
+            return undefined;
+        });
+
+        return hasRows;
+    }
+
+    function showPresetNotice(level, message) {
+        var $status = $('#tah-pricing-save-status');
+        if (!$status.length) {
+            return;
+        }
+
+        if (!message) {
+            setSaveStatus('clear');
+            return;
+        }
+
+        if (level === 'error') {
+            setSaveStatus('error', message);
+            return;
+        }
+
+        setSaveStatus('success', message);
+    }
+
+    function applyPresetToEditor(groups) {
+        var $groupsWrap = $('#tah-pricing-groups');
+        if (!$groupsWrap.length) {
+            return;
+        }
+
+        $groupsWrap.empty();
+
+        if (!Array.isArray(groups) || !groups.length) {
+            groupCounter += 1;
+            $groupsWrap.append(buildGroupHtml('group-new-' + Date.now() + '-' + groupCounter, null));
+            initLineSortable($groupsWrap);
+            initAutocomplete($groupsWrap);
+            refreshTotals();
+            return;
+        }
+
+        groups.forEach(function (group, index) {
+            groupCounter += 1;
+            var groupKey = 'group-preset-' + Date.now() + '-' + groupCounter + '-' + index;
+            $groupsWrap.append(buildGroupHtml(groupKey, {
+                name: String(group.name || labels.groupDefaultName || 'New Group'),
+                description: String(group.description || ''),
+                selectionMode: String(group.selection_mode || 'all'),
+                showSubtotal: !!group.show_subtotal,
+                isCollapsed: !!group.is_collapsed,
+                items: Array.isArray(group.items) ? group.items.map(function (item) {
+                    return {
+                        title: String(item.title || ''),
+                        description: String(item.description || ''),
+                        quantity: normalizeNumber(item.quantity, 1),
+                        resolvedPrice: normalizeNumber(item.resolved_price, 0),
+                        rateFormula: String(item.rate_formula || '$'),
+                        pricingItemId: parseInt(String(item.pricing_item_id || 0), 10) || 0,
+                        unitType: String(item.unit_type || 'flat'),
+                        catalogPrice: normalizeNumber(item.catalog_price, 0),
+                        itemType: 'standard'
+                    };
+                }) : []
+            }));
+        });
+
+        initLineSortable($groupsWrap);
+        initAutocomplete($groupsWrap);
+        refreshTotals();
+    }
+
+    function applyTradePreset(tradeId) {
+        var quoteId = getEditorQuoteId();
+        if (!ajaxUrl || !ajaxNonce || quoteId <= 0 || tradeId <= 0) {
+            return;
+        }
+
+        if (hasPopulatedEditorRows()) {
+            showPresetNotice('warning', labels.presetAlreadyPopulated || 'Pricing is already populated for this quote. Preset was not applied.');
+            return;
+        }
+
+        $.ajax({
+            url: ajaxUrl,
+            method: 'POST',
+            dataType: 'json',
+            data: {
+                action: ajaxApplyPresetAction,
+                nonce: ajaxNonce,
+                quote_id: quoteId,
+                trade_id: tradeId
+            }
+        }).done(function (response) {
+            if (!response || response.success !== true || !response.data) {
+                showPresetNotice('error', labels.saveError || 'Save failed');
+                return;
+            }
+
+            var data = response.data;
+            if (!data.applied) {
+                if (data.reason === 'no_preset') {
+                    showPresetNotice('warning', data.message || labels.presetNoPreset || 'No pricing preset is configured for this trade.');
+                    return;
+                }
+                if (data.reason === 'already_populated') {
+                    showPresetNotice('warning', data.message || labels.presetAlreadyPopulated || 'Pricing is already populated for this quote. Preset was not applied.');
+                    return;
+                }
+                if (data.reason === 'unsupported_format') {
+                    showPresetNotice('warning', data.message || labels.presetUnsupportedFormat || 'Pricing presets apply only to standard quotes.');
+                    return;
+                }
+                showPresetNotice('warning', data.message || labels.presetNoPreset || 'No pricing preset is configured for this trade.');
+                return;
+            }
+
+            applyPresetToEditor(Array.isArray(data.groups) ? data.groups : []);
+            if (normalizeNumber(data.missing_count, 0) > 0) {
+                showPresetNotice('warning', data.message || labels.presetSkipped || 'Some preset items were skipped because they no longer exist in the catalog.');
+                return;
+            }
+            showPresetNotice('success', data.message || labels.presetApplied || 'Pricing preset applied.');
+        }).fail(function () {
+            showPresetNotice('error', labels.saveError || 'Save failed');
+        });
     }
 
     function getFieldFormula($field) {
@@ -565,6 +748,132 @@
         return true;
     }
 
+    function normalizeCatalogPrice(value) {
+        if (typeof value === 'number') {
+            return Number.isFinite(value) ? value : 0;
+        }
+
+        if (typeof value === 'string') {
+            var cleaned = value.replace(/[^0-9.\-]/g, '');
+            var parsed = Number(cleaned);
+            return Number.isFinite(parsed) ? parsed : 0;
+        }
+
+        return 0;
+    }
+
+    function getEditorQuoteId() {
+        var $editor = $('#tah-quote-pricing');
+        return parseInt(String($editor.attr('data-quote-id') || '0'), 10) || 0;
+    }
+
+    function applyCatalogSuggestion($row, item) {
+        var title = String(item.title || item.label || item.value || item.sku || '').trim();
+        if (title) {
+            $row.find('.tah-line-title').val(title);
+        }
+
+        $row.find('.tah-line-pricing-item-id').val(String(item.id || 0));
+        $row.find('.tah-line-description').val(String(item.description || ''));
+        $row.find('.tah-line-unit-type').val(String(item.unit_type || 'flat'));
+        $row.find('.tah-line-item-type').val('standard');
+
+        var unitPrice = normalizeCatalogPrice(item.unit_price);
+        var $rateInput = $row.find('.tah-line-rate');
+        $rateInput.attr('data-formula', '$');
+        $rateInput.attr('data-resolved', compactNumber(unitPrice));
+        $rateInput.val(formatCurrency(unitPrice));
+        $row.find('.tah-line-catalog-price').val(compactNumber(unitPrice));
+
+        refreshTotals();
+    }
+
+    function fetchCatalogSuggestions(term, callback) {
+        var quoteId = getEditorQuoteId();
+        if (!ajaxUrl || !ajaxNonce || quoteId <= 0 || !term) {
+            callback([]);
+            return;
+        }
+
+        $.ajax({
+            url: ajaxUrl,
+            method: 'POST',
+            dataType: 'json',
+            data: {
+                action: ajaxSearchAction,
+                nonce: ajaxNonce,
+                quote_id: quoteId,
+                term: term
+            }
+        }).done(function (response) {
+            if (!response || response.success !== true || !response.data || !Array.isArray(response.data.items)) {
+                callback([]);
+                return;
+            }
+
+            var items = response.data.items.map(function (item) {
+                var label = String(item.label || item.title || item.value || item.sku || '').trim();
+                var unitPrice = normalizeCatalogPrice(item.unit_price);
+                return {
+                    label: label,
+                    value: label,
+                    item: item,
+                    unitPrice: unitPrice
+                };
+            });
+
+            callback(items);
+        }).fail(function () {
+            callback([]);
+        });
+    }
+
+    function attachLineItemAutocomplete($input) {
+        if (!$input.length || typeof $input.autocomplete !== 'function') {
+            return;
+        }
+
+        if ($input.data('tahAutocompleteReady')) {
+            return;
+        }
+
+        $input.autocomplete({
+            minLength: 2,
+            delay: 180,
+            source: function (request, response) {
+                fetchCatalogSuggestions(String(request.term || '').trim(), response);
+            },
+            focus: function (event, ui) {
+                event.preventDefault();
+                $input.val(ui.item.value);
+            },
+            select: function (event, ui) {
+                event.preventDefault();
+                applyCatalogSuggestion($input.closest('.tah-line-item-row'), ui.item.item || {});
+            }
+        });
+
+        var instance = $input.autocomplete('instance');
+        if (instance && typeof instance._renderItem === 'function') {
+            instance._renderItem = function (ul, ui) {
+                var priceText = formatCurrency(ui.item.unitPrice);
+                var markup = '<div class="tah-pricing-suggest-item">' +
+                    '<span class="tah-pricing-suggest-title">' + escHtml(ui.item.label) + '</span>' +
+                    '<span class="tah-pricing-suggest-price">' + escHtml(priceText || (labels.suggestionNoPrice || 'No price')) + '</span>' +
+                    '</div>';
+                return $('<li>').append(markup).appendTo(ul);
+            };
+        }
+
+        $input.data('tahAutocompleteReady', true);
+    }
+
+    function initAutocomplete($scope) {
+        $scope.find('.tah-line-title').each(function () {
+            attachLineItemAutocomplete($(this));
+        });
+    }
+
     $(function () {
         if (!$('#tah-quote-pricing').length) {
             return;
@@ -572,6 +881,7 @@
 
         initGroupSortable();
         initLineSortable($('#tah-quote-pricing'));
+        initAutocomplete($('#tah-quote-pricing'));
 
         refreshTotals();
 
@@ -612,6 +922,7 @@
             }));
             $tbody.append($row);
             initLineSortable($group);
+            initAutocomplete($group);
             refreshTotals();
             $row.find('.tah-line-title').trigger('focus');
         });
@@ -695,6 +1006,7 @@
             var $group = $(buildGroupHtml(key));
             $('#tah-pricing-groups').append($group);
             initLineSortable($group);
+            initAutocomplete($group);
             refreshTotals();
             $group.find('.tah-group-name').trigger('focus');
         });
@@ -707,6 +1019,14 @@
             if (saveDraftAjax()) {
                 event.preventDefault();
             }
+        });
+
+        $(document).on('change', 'input[name="tah_trade_term_id"]', function () {
+            var tradeId = parseInt(String($(this).val() || '0'), 10) || 0;
+            if (tradeId <= 0) {
+                return;
+            }
+            applyTradePreset(tradeId);
         });
 
         $(document).on('keydown', function (event) {

@@ -109,6 +109,62 @@ final class TAH_Pricing_Repository
     }
 
     /**
+     * Search active catalog items for quote line-item auto-suggest.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function search_catalog_items_for_quote(string $term, string $catalog_type, int $trade_id = 0, int $limit = 20)
+    {
+        $catalog_type = in_array($catalog_type, ['standard', 'insurance'], true) ? $catalog_type : 'standard';
+        $limit = max(1, min(50, $limit));
+        $like = '%' . $this->wpdb->esc_like($term) . '%';
+
+        if ($trade_id > 0) {
+            $sql = $this->wpdb->prepare(
+                "SELECT id, sku, title, description, unit_type, unit_price, trade_id
+                FROM {$this->tables['pricing_items']}
+                WHERE is_active = 1
+                AND catalog_type = %s
+                AND (title LIKE %s OR sku LIKE %s)
+                AND (trade_id = %d OR trade_id IS NULL)
+                ORDER BY
+                    CASE
+                        WHEN trade_id = %d THEN 0
+                        WHEN trade_id IS NULL THEN 1
+                        ELSE 2
+                    END,
+                    sort_order ASC,
+                    title ASC,
+                    id ASC
+                LIMIT %d",
+                $catalog_type,
+                $like,
+                $like,
+                $trade_id,
+                $trade_id,
+                $limit
+            );
+        } else {
+            $sql = $this->wpdb->prepare(
+                "SELECT id, sku, title, description, unit_type, unit_price, trade_id
+                FROM {$this->tables['pricing_items']}
+                WHERE is_active = 1
+                AND catalog_type = %s
+                AND (title LIKE %s OR sku LIKE %s)
+                ORDER BY sort_order ASC, title ASC, id ASC
+                LIMIT %d",
+                $catalog_type,
+                $like,
+                $like,
+                $limit
+            );
+        }
+
+        $rows = $this->wpdb->get_results($sql, ARRAY_A);
+        return is_array($rows) ? $rows : [];
+    }
+
+    /**
      * Fetch a catalog item by SKU.
      *
      * @return array<string, mixed>|null
@@ -118,6 +174,40 @@ final class TAH_Pricing_Repository
         $sql = $this->wpdb->prepare(
             "SELECT * FROM {$this->tables['pricing_items']} WHERE sku = %s LIMIT 1",
             $sku
+        );
+
+        $row = $this->wpdb->get_row($sql, ARRAY_A);
+        if (!is_array($row)) {
+            return null;
+        }
+
+        if (isset($row['price_history']) && is_string($row['price_history']) && $row['price_history'] !== '') {
+            $decoded = json_decode($row['price_history'], true);
+            $row['price_history'] = is_array($decoded) ? $decoded : [];
+        } else {
+            $row['price_history'] = [];
+        }
+
+        return $row;
+    }
+
+    /**
+     * Fetch an active catalog item by SKU scoped to catalog type.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function get_active_item_by_sku_and_catalog(string $sku, string $catalog_type)
+    {
+        $catalog_type = in_array($catalog_type, ['standard', 'insurance'], true) ? $catalog_type : 'standard';
+
+        $sql = $this->wpdb->prepare(
+            "SELECT * FROM {$this->tables['pricing_items']}
+            WHERE sku = %s
+            AND catalog_type = %s
+            AND is_active = 1
+            LIMIT 1",
+            $sku,
+            $catalog_type
         );
 
         $row = $this->wpdb->get_row($sql, ARRAY_A);

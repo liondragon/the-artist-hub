@@ -289,3 +289,248 @@ body#tinymce .collapsible .collapsible-trigger::after {
 body#tinymce .collapsible:has(.collapsible-content.collapsed) .collapsible-trigger::after {
     transform: translateY(-50%) rotate(0deg);
 }
+
+/* ==========================================================================
+   Quote Pricing Frontend
+   ========================================================================== */
+
+.pricing .tah-quote-pricing {
+    margin: 2rem 0 2.5rem;
+}
+
+.pricing .tah-pricing-group {
+    margin: 0 0 1.25rem;
+    border: 1px solid #d7d7d7;
+    background: #fff;
+}
+
+.pricing .tah-pricing-group-header {
+    padding: 0.8rem 1rem 0.6rem;
+    border-bottom: 1px solid #e6e6e6;
+    background: #fafafa;
+}
+
+.pricing .tah-pricing-group-title {
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.3;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.pricing .tah-pricing-group-description {
+    margin: 0.4rem 0 0;
+    color: #555;
+}
+
+.pricing .tah-pricing-group-collapsed-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid #efefef;
+    background: #f8f8f8;
+}
+
+.pricing .tah-pricing-group-collapsed-label,
+.pricing .tah-pricing-group-collapsed-value {
+    font-weight: 700;
+}
+
+.pricing .tah-pricing-group-details > summary {
+    cursor: pointer;
+    padding: 0.7rem 1rem;
+    font-weight: 600;
+}
+
+.pricing .tah-pricing-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    line-height: 1.4;
+}
+
+.pricing .tah-pricing-table th,
+.pricing .tah-pricing-table td {
+    padding: 0.55rem 0.65rem;
+    border-bottom: 1px solid #ececec;
+    vertical-align: top;
+}
+
+.pricing .tah-pricing-table thead th {
+    font-size: 0.78rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    font-weight: 700;
+    background: #f6f6f6;
+}
+
+.pricing .tah-pricing-col-index {
+    width: 3.25rem;
+    text-align: center;
+}
+
+.pricing .tah-pricing-col-item {
+    width: auto;
+}
+
+.pricing .tah-pricing-col-qty {
+    width: 7.5rem;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.pricing .tah-pricing-col-rate,
+.pricing .tah-pricing-col-total {
+    width: 9rem;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.pricing .tah-pricing-item-main {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    align-items: center;
+}
+
+.pricing .tah-pricing-item-title {
+    font-weight: 600;
+}
+
+.pricing .tah-pricing-item-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.1rem 0.4rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    line-height: 1.4;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #7a0d0d;
+    background: #f9e8e8;
+}
+
+.pricing .tah-pricing-item-badge-muted {
+    color: #505050;
+    background: #ececec;
+}
+
+.pricing .tah-pricing-item-description {
+    margin-top: 0.35rem;
+}
+
+.pricing .tah-pricing-item-description > summary {
+    cursor: pointer;
+    color: var(--color-link);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.pricing .tah-pricing-item-description-body {
+    margin-top: 0.35rem;
+    color: #3f3f3f;
+    font-size: 0.85rem;
+}
+
+.pricing .tah-pricing-line-item-discount {
+    background: #fff8f8;
+}
+
+.pricing .tah-pricing-line-item-excluded {
+    opacity: 0.62;
+}
+
+.pricing .tah-pricing-line-item-empty td {
+    text-align: center;
+    color: #777;
+    padding: 0.9rem 0.65rem;
+}
+
+.pricing .tah-pricing-subtotal-row th,
+.pricing .tah-pricing-subtotal-row td {
+    font-weight: 700;
+    background: #f7f7f7;
+}
+
+.pricing .tah-pricing-grand-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.9rem;
+    padding: 0.8rem 1rem;
+    border: 1px solid #d0d0d0;
+    background: #f2f2f2;
+}
+
+.pricing .tah-pricing-grand-total-label {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.pricing .tah-pricing-grand-total-value {
+    font-size: 1.08rem;
+    font-weight: 700;
+}
+
+@media (max-width: 780px) {
+    .pricing .tah-pricing-table {
+        table-layout: auto;
+    }
+
+    .pricing .tah-pricing-table th,
+    .pricing .tah-pricing-table td {
+        padding: 0.45rem 0.5rem;
+    }
+
+    .pricing .tah-pricing-col-rate,
+    .pricing .tah-pricing-col-total,
+    .pricing .tah-pricing-col-qty {
+        width: auto;
+    }
+}
+
+@media print {
+    .pricing .tah-quote-pricing {
+        margin: 0;
+    }
+
+    .pricing .tah-pricing-group {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        margin-bottom: 0.7rem;
+        border-color: #bdbdbd;
+    }
+
+    .pricing .tah-pricing-group-header,
+    .pricing .tah-pricing-subtotal-row th,
+    .pricing .tah-pricing-subtotal-row td,
+    .pricing .tah-pricing-grand-total {
+        background: #fff !important;
+    }
+
+    .pricing .tah-pricing-group-details > summary,
+    .pricing .tah-pricing-item-description > summary {
+        display: none;
+    }
+
+    .pricing .tah-pricing-group-details {
+        display: block;
+    }
+
+    .pricing .tah-pricing-item-description {
+        margin-top: 0.2rem;
+    }
+
+    .pricing .tah-pricing-item-description-body {
+        margin-top: 0;
+        font-size: 0.78rem;
+    }
+
+    .pricing .tah-pricing-line-item-excluded {
+        opacity: 1;
+    }
+}

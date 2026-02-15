@@ -47,3 +47,106 @@
 - `TAH_Quote_Edit_Screen::handle_duplicate_quote()` creates a new `quotes` draft, copies quote taxonomies, copies most post meta, then clones pricing groups and line items through `TAH_Pricing_Repository` (IDs reset, group IDs remapped).
 - Meta keys intentionally not copied to the duplicate: `_tah_prices_resolved_at`, view counters/timestamps, price-lock window keys, and edit-lock keys; this keeps the duplicate on a fresh pricing-resolve lifecycle.
 - If pricing row duplication fails after draft creation, the new draft is deleted and the action exits with an error to avoid partial duplicates.
+
+## Pricing Auto-Suggest Endpoint (Phase 2) (2026-02-15)
+
+- Added `TAH_Pricing_Repository::search_catalog_items_for_quote($term, $catalog_type, $trade_id, $limit)` for active-item search with strict `catalog_type` filtering and trade prioritization.
+- Added `wp_ajax_tah_search_pricing_items` in `TAH_Quote_Pricing_Metabox`:
+  - Validates nonce + `edit_post` capability.
+  - Resolves quote format from `_tah_quote_format` (defaults to `standard`) and uses it as catalog partition.
+  - Resolves current quote trade from taxonomy and returns only matching-trade + universal (`trade_id IS NULL`) items.
+- `quote-pricing.js` now attaches jQuery UI autocomplete to `.tah-line-title` fields (existing + dynamically added rows), calls the new endpoint, and on select populates:
+  - `pricing_item_id`
+  - title
+  - description
+  - `unit_type`
+  - rate formula/resolved price (resets to catalog default `$`)
+  - catalog price hidden field
+- `class-quote-pricing-metabox.php` now enqueues `jquery-ui-autocomplete` and localizes `ajaxSearchAction`.
+
+## Resolved Price Computation On Save (Phase 2) (2026-02-15)
+
+- `TAH_Quote_Pricing_Metabox::persist_pricing_payload()` now recomputes each line item's `resolved_price` server-side via `TAH_Price_Formula::resolve(...)` using:
+  - parsed line `rate_formula` (`price_mode` + `price_modifier`)
+  - current catalog `unit_price` snapshot (when `pricing_item_id` is set)
+  - global rounding options `tah_price_rounding` + `tah_price_rounding_direction`
+- Client-supplied `resolved_price` is no longer trusted for persistence.
+- `_tah_prices_resolved_at` is now updated on successful pricing payload persistence (WP save and AJAX draft save paths both call the same persistence method).
+
+## Cascade Deletes (Phase 2) (2026-02-15)
+
+- `TAH_Pricing_Module` now registers `before_delete_post` and routes `quotes` deletions through `TAH_Pricing_Repository::delete_quote_pricing_data()`.
+- Delete order is explicitly preserved inside repository transaction: line items first, then groups, then quote post deletion proceeds in core.
+- Group-level cascades during quote editing continue to flow through `save_quote_groups()` where stale group IDs delete their line items before group rows.
+
+## Quote View Tracking (Phase 2) (2026-02-15)
+
+- Added `inc/modules/pricing/class-quote-view-tracking.php` with global helper `tah_track_quote_view($post_id)` for customer-view counting.
+- `single-quotes.php` now calls `tah_track_quote_view(get_the_ID())` inside the loop, so tracking only runs when the quote template is rendered.
+- Tracking exclusions are enforced in the tracker class:
+  - skip logged-in users
+  - skip requests with `?nt`
+- Successful track updates:
+  - `_tah_quote_view_count` increment
+  - `_tah_quote_last_viewed_at` set to current site time (`current_time('mysql')`)
+- Quote edit header now displays summary when available: `"Viewed X times • Last viewed ..."` via `TAH_Quote_Edit_Screen::get_view_tracking_summary()`.
+
+## Admin Notes Field (Phase 2) (2026-02-15)
+
+- `TAH_Quote_Edit_Screen` now renders an inline "Admin Notes" card in the custom quote sidebar with textarea bound to `_tah_quote_admin_notes`.
+- Added dedicated nonce guard (`_tah_quote_admin_notes_nonce`) and `save_post_quotes` handler `save_admin_notes()` to persist notes safely.
+- Notes are saved as plain text via `sanitize_textarea_field`, remain admin-only, and are never rendered on `single-quotes.php`.
+
+## Frontend Template Wiring (Phase 3 Task 2) (2026-02-15)
+
+- `single-quotes.php` now renders quote layers in this order:
+  1) `the_content()`
+  2) `tah_render_quote_pricing(get_the_ID())` when available
+  3) `tah_render_quote_sections(get_the_ID())` when available
+- This finally wires the earlier `TAH_Quote_Pricing_Frontend` implementation into customer-facing quote pages.
+
+## Auto-Suggest Glitch Follow-Up (2026-02-15)
+
+- Reported symptom: suggestions rendered with blank left label and `$0.00` price despite matching items existing.
+- Hardening applied on both response and client mapping:
+  - Endpoint now always emits `label`/`value` with fallback order: `title` -> `sku` -> localized "Untitled item".
+  - Endpoint `unit_price` now guards with `is_numeric()` before casting.
+  - Client autocomplete now maps label with fallback order: `label` -> `title` -> `value` -> `sku`.
+  - Client now parses prices through `normalizeCatalogPrice()` (accepts numeric and numeric-like strings) before rendering and before populating rate fields.
+- Resulting behavior: suggestion rows should always show a non-empty item name when data exists, and unit price should no longer collapse to `$0.00` from response-shape or formatting mismatch.
+
+## Trade Pricing Preset Field (Phase 4 Task 1) (2026-02-15)
+
+- Added `inc/modules/pricing/class-pricing-trade-presets.php` (`TAH_Pricing_Trade_Presets`) and wired it via `TAH_Pricing_Module::load_module_classes()`.
+- Trade taxonomy add/edit screens now include a "Pricing Preset (Standard Quotes)" JSON field backed by term meta `_tah_trade_pricing_preset`.
+- Save path validates nonce + `manage_categories`, normalizes preset shape (`groups[]` with `name`, `selection_mode`, `show_subtotal`, `is_collapsed`, `items[]` of `pricing_item_sku` + `quantity`), and persists normalized JSON.
+- Empty input persists `{"groups":[]}`; invalid JSON input is ignored (existing saved preset remains unchanged).
+
+## Trade Preset Population On Trade Selection (Phase 4 Task 2) (2026-02-15)
+
+- Added `wp_ajax_tah_apply_trade_pricing_preset` in `TAH_Quote_Pricing_Metabox`:
+  - Validates nonce + `edit_post` capability.
+  - Applies only to `_tah_quote_format = standard`.
+  - Enforces overwrite guard: if quote already has persisted pricing groups/line items, returns `already_populated` and does not replace data.
+  - Loads trade preset JSON from `_tah_trade_pricing_preset`, resolves each `pricing_item_sku` to active standard catalog items, and returns prebuilt group/item payload for UI rendering.
+  - Missing SKUs are skipped and returned as `missing_count`/`missing_skus` for admin feedback.
+- Added repository helper `TAH_Pricing_Repository::get_active_item_by_sku_and_catalog($sku, $catalog_type)` for strict SKU + catalog partition + active status lookup.
+- `quote-pricing.js` now listens to `input[name=\"tah_trade_term_id\"]` changes:
+  - Requests preset payload from the new AJAX action.
+  - Client-side overwrite guard: if any pricing row already has a non-empty title, preset application is skipped.
+  - Rebuilds pricing groups/items in the editor from the returned payload and recomputes totals.
+  - Shows status feedback for success, no preset, unsupported format, already populated, and missing-SKU skip cases.
+
+## Frontend Pricing CSS (Phase 3 Task 3) (2026-02-15)
+
+- Added pricing frontend styles to `assets/css/_content.css` under `.pricing .tah-*` selectors to match structured quote tables:
+  - Group card/header styling, collapsed subtotal block, details toggle.
+  - Table layout for index/item/qty/rate/total columns.
+  - Discount + not-selected visual states.
+  - Subtotal and grand total emphasis rows.
+- Added mobile adjustments (`@media (max-width: 780px)`) for tighter table spacing/column width behavior.
+- Added print rules (`@media print`) to improve hardcopy output:
+  - Avoid group page breaks.
+  - Remove background fills.
+  - Hide details summaries while keeping details content visible.
+  - Keep excluded rows fully legible in print.

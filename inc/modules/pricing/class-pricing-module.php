@@ -34,6 +34,7 @@ final class TAH_Pricing_Module
 
         self::maybe_migrate_schema();
         self::load_module_classes();
+        self::register_hooks();
     }
 
     /**
@@ -92,12 +93,18 @@ final class TAH_Pricing_Module
             require_once $frontend_file;
         }
 
+        $view_tracking_file = __DIR__ . '/class-quote-view-tracking.php';
+        if (file_exists($view_tracking_file)) {
+            require_once $view_tracking_file;
+        }
+
         if (!is_admin()) {
             return;
         }
 
         $admin_files = [
             __DIR__ . '/class-pricing-catalog-admin.php',
+            __DIR__ . '/class-pricing-trade-presets.php',
             __DIR__ . '/class-quote-edit-screen.php',
             __DIR__ . '/class-quote-pricing-metabox.php',
         ];
@@ -107,5 +114,32 @@ final class TAH_Pricing_Module
                 require_once $admin_file;
             }
         }
+    }
+
+    /**
+     * Register runtime hooks after classes are loaded.
+     */
+    private static function register_hooks()
+    {
+        add_action('before_delete_post', [__CLASS__, 'handle_before_delete_post']);
+    }
+
+    /**
+     * Cascade-delete pricing rows when a quote is permanently deleted.
+     */
+    public static function handle_before_delete_post($post_id)
+    {
+        $post_id = (int) $post_id;
+        if ($post_id <= 0 || !class_exists('TAH_Pricing_Repository')) {
+            return;
+        }
+
+        $post = get_post($post_id);
+        if (!$post instanceof WP_Post || $post->post_type !== 'quotes') {
+            return;
+        }
+
+        $repository = new TAH_Pricing_Repository();
+        $repository->delete_quote_pricing_data($post_id);
     }
 }

@@ -127,9 +127,15 @@
 			<div class="inner">
 				<?php while (have_posts()):
 					the_post(); ?>
+					<?php if (function_exists('tah_track_quote_view')) {
+						tah_track_quote_view(get_the_ID());
+					} ?>
 					<article id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
 							<div class="entry-content pricing">
 								<?php the_content(); ?>
+								<?php if (function_exists('tah_render_quote_pricing')) {
+									tah_render_quote_pricing(get_the_ID());
+								} ?>
 								<?php if (function_exists('tah_render_quote_sections')) {
 									tah_render_quote_sections(get_the_ID());
 								} ?>

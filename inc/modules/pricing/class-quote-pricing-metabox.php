@@ -34,6 +34,8 @@ final class TAH_Quote_Pricing_Metabox
         add_action('add_meta_boxes_' . self::POST_TYPE, [$this, 'register_metabox'], 20);
         add_action('save_post_' . self::POST_TYPE, [$this, 'save_quote_pricing'], 30, 3);
         add_action('wp_ajax_tah_save_pricing', [$this, 'ajax_save_pricing']);
+        add_action('wp_ajax_tah_search_pricing_items', [$this, 'ajax_search_pricing_items']);
+        add_action('wp_ajax_tah_apply_trade_pricing_preset', [$this, 'ajax_apply_trade_pricing_preset']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_assets']);
     }
 
@@ -195,6 +197,217 @@ final class TAH_Quote_Pricing_Metabox
     }
 
     /**
+     * Search active pricing catalog items for quote line-item auto-suggest.
+     */
+    public function ajax_search_pricing_items(): void
+    {
+        check_ajax_referer('tah_pricing_nonce', 'nonce');
+
+        $quote_id = isset($_POST['quote_id']) ? (int) wp_unslash((string) $_POST['quote_id']) : 0;
+        if ($quote_id <= 0) {
+            wp_send_json_error(['message' => __('Missing quote ID.', 'the-artist')], 400);
+        }
+
+        $post = get_post($quote_id);
+        if (!$post instanceof WP_Post || $post->post_type !== self::POST_TYPE) {
+            wp_send_json_error(['message' => __('Invalid quote.', 'the-artist')], 400);
+        }
+
+        if (!current_user_can('edit_post', $quote_id)) {
+            wp_send_json_error(['message' => __('Unauthorized.', 'the-artist')], 403);
+        }
+
+        $term = '';
+        if (isset($_POST['term'])) {
+            $term = sanitize_text_field(wp_unslash((string) $_POST['term']));
+        } elseif (isset($_POST['search'])) {
+            $term = sanitize_text_field(wp_unslash((string) $_POST['search']));
+        }
+        if ($term === '') {
+            wp_send_json_success(['items' => []]);
+        }
+
+        $catalog_type = (string) get_post_meta($quote_id, '_tah_quote_format', true);
+        if (!in_array($catalog_type, ['standard', 'insurance'], true)) {
+            $catalog_type = 'standard';
+        }
+
+        $trade_id = $this->get_quote_trade_id($quote_id);
+        $matches = $this->repository->search_catalog_items_for_quote($term, $catalog_type, $trade_id, 20);
+
+        $items = [];
+        foreach ($matches as $match) {
+            if (!is_array($match)) {
+                continue;
+            }
+
+            $title = isset($match['title']) ? trim((string) $match['title']) : '';
+            $sku = isset($match['sku']) ? trim((string) $match['sku']) : '';
+            $label = $title !== '' ? $title : $sku;
+            if ($label === '') {
+                $label = __('Untitled item', 'the-artist');
+            }
+
+            $unit_price = isset($match['unit_price']) && is_numeric($match['unit_price'])
+                ? round((float) $match['unit_price'], 2)
+                : 0.0;
+
+            $items[] = [
+                'id' => isset($match['id']) ? (int) $match['id'] : 0,
+                'sku' => $sku,
+                'title' => $title,
+                'label' => $label,
+                'value' => $label,
+                'description' => isset($match['description']) ? (string) $match['description'] : '',
+                'unit_type' => isset($match['unit_type']) ? (string) $match['unit_type'] : 'flat',
+                'unit_price' => $unit_price,
+                'trade_id' => isset($match['trade_id']) && $match['trade_id'] !== null ? (int) $match['trade_id'] : null,
+            ];
+        }
+
+        wp_send_json_success(['items' => $items]);
+    }
+
+    /**
+     * Apply pricing preset for selected trade to a quote with no persisted pricing rows.
+     */
+    public function ajax_apply_trade_pricing_preset(): void
+    {
+        check_ajax_referer('tah_pricing_nonce', 'nonce');
+
+        $quote_id = isset($_POST['quote_id']) ? (int) wp_unslash((string) $_POST['quote_id']) : 0;
+        $trade_id = isset($_POST['trade_id']) ? (int) wp_unslash((string) $_POST['trade_id']) : 0;
+
+        if ($quote_id <= 0 || $trade_id <= 0) {
+            wp_send_json_error(['message' => __('Missing quote or trade.', 'the-artist')], 400);
+        }
+
+        $post = get_post($quote_id);
+        if (!$post instanceof WP_Post || $post->post_type !== self::POST_TYPE) {
+            wp_send_json_error(['message' => __('Invalid quote.', 'the-artist')], 400);
+        }
+
+        if (!current_user_can('edit_post', $quote_id)) {
+            wp_send_json_error(['message' => __('Unauthorized.', 'the-artist')], 403);
+        }
+
+        $quote_format = (string) get_post_meta($quote_id, '_tah_quote_format', true);
+        if ($quote_format === '') {
+            $quote_format = 'standard';
+        }
+        if ($quote_format !== 'standard') {
+            wp_send_json_success([
+                'applied' => false,
+                'reason' => 'unsupported_format',
+                'message' => __('Pricing presets apply only to standard quotes.', 'the-artist'),
+            ]);
+        }
+
+        if ($this->has_persisted_pricing_data($quote_id)) {
+            wp_send_json_success([
+                'applied' => false,
+                'reason' => 'already_populated',
+                'message' => __('Pricing is already populated for this quote. Preset was not applied.', 'the-artist'),
+            ]);
+        }
+
+        $preset = $this->get_trade_pricing_preset($trade_id);
+        if (empty($preset['groups'])) {
+            wp_send_json_success([
+                'applied' => false,
+                'reason' => 'no_preset',
+                'message' => __('No pricing preset is configured for this trade.', 'the-artist'),
+            ]);
+        }
+
+        $rounding = (float) get_option('tah_price_rounding', 1);
+        $rounding_direction = (string) get_option('tah_price_rounding_direction', TAH_Price_Formula::ROUNDING_NEAREST);
+        $response_groups = [];
+        $missing_skus = [];
+
+        foreach ($preset['groups'] as $group) {
+            if (!is_array($group)) {
+                continue;
+            }
+
+            $response_items = [];
+            $group_items = isset($group['items']) && is_array($group['items']) ? $group['items'] : [];
+
+            foreach ($group_items as $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+
+                $sku = isset($item['pricing_item_sku']) ? sanitize_text_field((string) $item['pricing_item_sku']) : '';
+                if ($sku === '') {
+                    continue;
+                }
+
+                $catalog_item = $this->repository->get_active_item_by_sku_and_catalog($sku, 'standard');
+                if (!is_array($catalog_item)) {
+                    $missing_skus[] = $sku;
+                    continue;
+                }
+
+                $catalog_price = isset($catalog_item['unit_price']) ? (float) $catalog_item['unit_price'] : 0.0;
+                $resolved_price = TAH_Price_Formula::resolve(
+                    TAH_Price_Formula::MODE_DEFAULT,
+                    0.0,
+                    $catalog_price,
+                    $rounding,
+                    $rounding_direction
+                );
+
+                $quantity = isset($item['quantity']) && is_numeric($item['quantity'])
+                    ? round((float) $item['quantity'], 2)
+                    : 1.0;
+                if ($quantity <= 0) {
+                    $quantity = 1.0;
+                }
+
+                $response_items[] = [
+                    'pricing_item_id' => isset($catalog_item['id']) ? (int) $catalog_item['id'] : 0,
+                    'title' => isset($catalog_item['title']) ? (string) $catalog_item['title'] : '',
+                    'description' => isset($catalog_item['description']) ? (string) $catalog_item['description'] : '',
+                    'unit_type' => isset($catalog_item['unit_type']) ? (string) $catalog_item['unit_type'] : 'flat',
+                    'quantity' => $quantity,
+                    'rate_formula' => '$',
+                    'catalog_price' => round($catalog_price, 2),
+                    'resolved_price' => round($resolved_price, 2),
+                    'pricing_item_sku' => $sku,
+                ];
+            }
+
+            $response_groups[] = [
+                'name' => isset($group['name']) ? sanitize_text_field((string) $group['name']) : '',
+                'description' => isset($group['description']) ? sanitize_textarea_field((string) $group['description']) : '',
+                'selection_mode' => $this->normalize_selection_mode(isset($group['selection_mode']) ? (string) $group['selection_mode'] : 'all'),
+                'show_subtotal' => !empty($group['show_subtotal']),
+                'is_collapsed' => !empty($group['is_collapsed']),
+                'items' => $response_items,
+            ];
+        }
+
+        $missing_skus = array_values(array_unique($missing_skus));
+        $missing_count = count($missing_skus);
+
+        wp_send_json_success([
+            'applied' => true,
+            'reason' => 'applied',
+            'groups' => $response_groups,
+            'missing_count' => $missing_count,
+            'missing_skus' => $missing_skus,
+            'message' => $missing_count > 0
+                ? sprintf(
+                    /* translators: %d is number of preset items skipped. */
+                    __('%d preset items were skipped because they no longer exist in the catalog.', 'the-artist'),
+                    $missing_count
+                )
+                : __('Pricing preset applied.', 'the-artist'),
+        ]);
+    }
+
+    /**
      * @param array<int, array<string, mixed>> $groups_raw
      * @param array<int, array<string, mixed>> $items_raw
      * @return array{success:bool,resolved_prices:array<int,float>}
@@ -243,6 +456,10 @@ final class TAH_Quote_Pricing_Metabox
         }
 
         $line_item_rows = [];
+        $catalog_price_cache = [];
+        $rounding = (float) get_option('tah_price_rounding', 1);
+        $rounding_direction = (string) get_option('tah_price_rounding_direction', TAH_Price_Formula::ROUNDING_NEAREST);
+
         foreach ($items_raw as $index => $item_data) {
             if (!is_array($item_data)) {
                 continue;
@@ -266,20 +483,33 @@ final class TAH_Quote_Pricing_Metabox
                 ? round((float) $item_data['quantity'], 2)
                 : 0.0;
 
-            $resolved_price = isset($item_data['resolved_price']) && is_numeric($item_data['resolved_price'])
-                ? round((float) $item_data['resolved_price'], 2)
-                : 0.0;
+            $pricing_item_id = isset($item_data['pricing_item_id']) && (int) $item_data['pricing_item_id'] > 0
+                ? (int) $item_data['pricing_item_id']
+                : null;
 
-            if ($formula['mode'] === TAH_Price_Formula::MODE_OVERRIDE) {
-                $resolved_price = round((float) $formula['modifier'], 2);
+            $catalog_price = 0.0;
+            if ($pricing_item_id !== null) {
+                if (!array_key_exists($pricing_item_id, $catalog_price_cache)) {
+                    $catalog_item = $this->repository->get_item_by_id($pricing_item_id);
+                    $catalog_price_cache[$pricing_item_id] = is_array($catalog_item) && isset($catalog_item['unit_price'])
+                        ? (float) $catalog_item['unit_price']
+                        : 0.0;
+                }
+                $catalog_price = (float) $catalog_price_cache[$pricing_item_id];
             }
+
+            $resolved_price = TAH_Price_Formula::resolve(
+                (string) $formula['mode'],
+                (float) $formula['modifier'],
+                $catalog_price,
+                $rounding,
+                $rounding_direction
+            );
 
             $line_item_rows[] = [
                 'id' => isset($item_data['id']) ? max(0, (int) $item_data['id']) : 0,
                 'group_id' => $group_id,
-                'pricing_item_id' => isset($item_data['pricing_item_id']) && (int) $item_data['pricing_item_id'] > 0
-                    ? (int) $item_data['pricing_item_id']
-                    : null,
+                'pricing_item_id' => $pricing_item_id,
                 'item_type' => $this->normalize_item_type(isset($item_data['item_type']) ? (string) $item_data['item_type'] : 'standard', $resolved_price),
                 'title' => $title,
                 'description' => isset($item_data['description']) ? sanitize_textarea_field((string) $item_data['description']) : '',
@@ -287,7 +517,7 @@ final class TAH_Quote_Pricing_Metabox
                 'unit_type' => isset($item_data['unit_type']) ? sanitize_text_field((string) $item_data['unit_type']) : 'flat',
                 'price_mode' => $formula['mode'],
                 'price_modifier' => round((float) $formula['modifier'], 2),
-                'resolved_price' => $resolved_price,
+                'resolved_price' => round((float) $resolved_price, 2),
                 'previous_resolved_price' => isset($item_data['previous_resolved_price']) && is_numeric($item_data['previous_resolved_price'])
                     ? round((float) $item_data['previous_resolved_price'], 2)
                     : null,
@@ -317,6 +547,8 @@ final class TAH_Quote_Pricing_Metabox
             ];
         }
 
+        update_post_meta($post_id, '_tah_prices_resolved_at', current_time('mysql'));
+
         $resolved_prices = [];
         foreach ($line_item_rows as $line_item_row) {
             $resolved_prices[] = isset($line_item_row['resolved_price'])
@@ -345,7 +577,7 @@ final class TAH_Quote_Pricing_Metabox
         wp_enqueue_script(
             'tah-quote-pricing',
             get_template_directory_uri() . '/assets/js/quote-pricing.js',
-            ['jquery', 'jquery-ui-sortable'],
+            ['jquery', 'jquery-ui-sortable', 'jquery-ui-autocomplete'],
             $version,
             true
         );
@@ -353,6 +585,8 @@ final class TAH_Quote_Pricing_Metabox
         wp_localize_script('tah-quote-pricing', 'tahQuotePricingConfig', [
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'ajaxAction' => 'tah_save_pricing',
+            'ajaxSearchAction' => 'tah_search_pricing_items',
+            'ajaxApplyPresetAction' => 'tah_apply_trade_pricing_preset',
             'ajaxNonce' => wp_create_nonce('tah_pricing_nonce'),
             'rounding' => (float) get_option('tah_price_rounding', 1),
             'roundingDirection' => (string) get_option('tah_price_rounding_direction', TAH_Price_Formula::ROUNDING_NEAREST),
@@ -371,6 +605,12 @@ final class TAH_Quote_Pricing_Metabox
                 'saveSaving' => __('Saving...', 'the-artist'),
                 'saveSaved' => __('Saved', 'the-artist'),
                 'saveError' => __('Save failed', 'the-artist'),
+                'suggestionNoPrice' => __('No price', 'the-artist'),
+                'presetApplied' => __('Pricing preset applied.', 'the-artist'),
+                'presetNoPreset' => __('No pricing preset is configured for this trade.', 'the-artist'),
+                'presetAlreadyPopulated' => __('Pricing is already populated for this quote. Preset was not applied.', 'the-artist'),
+                'presetUnsupportedFormat' => __('Pricing presets apply only to standard quotes.', 'the-artist'),
+                'presetSkipped' => __('Some preset items were skipped because they no longer exist in the catalog.', 'the-artist'),
             ],
         ]);
     }
@@ -654,6 +894,49 @@ final class TAH_Quote_Pricing_Metabox
         return $screen instanceof WP_Screen
             && $screen->base === 'post'
             && $screen->post_type === self::POST_TYPE;
+    }
+
+    private function get_quote_trade_id(int $quote_id): int
+    {
+        $terms = wp_get_post_terms($quote_id, 'trade');
+        if (is_wp_error($terms) || empty($terms)) {
+            return 0;
+        }
+
+        $first = reset($terms);
+        if (!$first instanceof WP_Term) {
+            return 0;
+        }
+
+        return (int) $first->term_id;
+    }
+
+    /**
+     * @return array{groups: array<int, array<string, mixed>>}
+     */
+    private function get_trade_pricing_preset(int $trade_id): array
+    {
+        if ($trade_id <= 0) {
+            return ['groups' => []];
+        }
+
+        $raw = get_term_meta($trade_id, '_tah_trade_pricing_preset', true);
+        if (!is_string($raw) || trim($raw) === '') {
+            return ['groups' => []];
+        }
+
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded) || !isset($decoded['groups']) || !is_array($decoded['groups'])) {
+            return ['groups' => []];
+        }
+
+        return ['groups' => $decoded['groups']];
+    }
+
+    private function has_persisted_pricing_data(int $quote_id): bool
+    {
+        return !empty($this->repository->get_quote_groups($quote_id))
+            || !empty($this->repository->get_quote_line_items($quote_id));
     }
 
     private function format_rate_formula(string $price_mode, float $modifier): string

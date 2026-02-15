@@ -189,28 +189,28 @@
   - Interfaces: "Duplicate Quote" button in header bar. Creates a new draft quote with all groups, line items, and formula settings copied from the current quote.
   - Done When: Clicking "Duplicate Quote" creates a new draft and redirects to it. All pricing groups, items, quantities, and formulas are copied. New quote has fresh `_tah_prices_resolved_at` (prices recomputed on first save).
 
-- [ ] **Implement auto-suggest endpoint** · Reasoning: `medium` — AJAX search with catalog-type filtering + trade scoping + universal items fallback · (Spec: §Admin UX — Auto-Suggest, §Quote Formats — Catalog Partitioning)
-  - Artifacts: Same metabox file or separate AJAX handler in the module
+- [x] **Implement auto-suggest endpoint** · Reasoning: `medium` — AJAX search with catalog-type filtering + trade scoping + universal items fallback · (Spec: §Admin UX — Auto-Suggest, §Quote Formats — Catalog Partitioning)
+  - Artifacts: `inc/modules/pricing/class-pricing-repository.php`, `inc/modules/pricing/class-quote-pricing-metabox.php`, `assets/js/quote-pricing.js`, `assets/css/quote-editor.css`
   - Interfaces: AJAX/REST endpoint querying `wp_tah_pricing_items` by title, filtered by `catalog_type` matching quote format AND quote's trade, with universal items always shown
   - Done When: Typing in the "add item" field shows matching catalog items from the correct catalog type only. No cross-contamination between standard and insurance items. Selecting one populates title, description, unit_type, unit_price.
 
-- [ ] **Implement resolved price computation on save** · Reasoning: `medium` — wires formula engine + rounding settings into save handler; must handle all price_mode variants · (Spec: §Price Modification Model)
-  - Artifacts: Repository + metabox save handler
+- [x] **Implement resolved price computation on save** · Reasoning: `medium` — wires formula engine + rounding settings into save handler; must handle all price_mode variants · (Spec: §Price Modification Model)
+  - Artifacts: `inc/modules/pricing/class-quote-pricing-metabox.php`
   - Interfaces: `_tah_prices_resolved_at` post meta
   - Done When: On save, `resolved_price` is computed for each line item using formula engine + rounding settings. `_tah_prices_resolved_at` is set. Totals are computed on-the-fly at render time (`SUM(qty × resolved_price)` per group) — not stored.
 
-- [ ] **Wire cascade deletes** · Reasoning: `low` — standard `before_delete_post` hook with DELETE queries · (Spec: §Maintenance — Cascade Deletes)
+- [x] **Wire cascade deletes** · Reasoning: `low` — standard `before_delete_post` hook with DELETE queries · (Spec: §Maintenance — Cascade Deletes)
   - Artifacts: Module bootstrap file
   - Interfaces: `before_delete_post` hook
   - Done When: Permanently deleting a quote removes all its groups and line items from custom tables. Deleting a group removes its line items.
   - Handoff Required: yes — document the delete order (line items before groups before quote data) to avoid orphaned rows if a future module adds foreign-key-like constraints.
 
-- [ ] **Implement view tracking** · Reasoning: `low` — simple post meta increment with exclusion checks · (Spec: §Admin UX — Quote View Tracking)
-  - Artifacts: `inc/modules/pricing/class-quote-view-tracking.php`, frontend template
+- [x] **Implement view tracking** · Reasoning: `low` — simple post meta increment with exclusion checks · (Spec: §Admin UX — Quote View Tracking)
+  - Artifacts: `inc/modules/pricing/class-quote-view-tracking.php`, `single-quotes.php`, `inc/modules/pricing/class-quote-edit-screen.php`
   - Interfaces: On `single-quotes.php` load, increment `_tah_quote_view_count` and set `_tah_quote_last_viewed_at`. Skip if `is_user_logged_in()` or `?nt` parameter present.
   - Done When: Customer views increment counter. Admin/logged-in views are excluded. `?nt` parameter excluded. Header bar on edit screen shows "Viewed X times • Last viewed [date]".
 
-- [ ] **Implement admin notes field** · Reasoning: `low` — single textarea saving to post meta · (Spec: §Admin UX — Admin Notes)
+- [x] **Implement admin notes field** · Reasoning: `low` — single textarea saving to post meta · (Spec: §Admin UX — Admin Notes)
   - Artifacts: `inc/modules/pricing/class-quote-edit-screen.php`
   - Interfaces: Text area in sidebar of quote edit screen. Saves to `_tah_quote_admin_notes` post meta.
   - Done When: Admin can write/edit notes. Notes persist on save. Never rendered on frontend.
@@ -235,7 +235,7 @@
   - Depends On: Phase 0 (repository)
   - Done When: Each group renders as a styled table with heading and optional description text. Selection mode rules enforced: `all` groups include every item in totals (ignore `is_selected`); `multi` groups include only `is_selected = 1` items; `single` groups include exactly one selected item. Groups with `is_collapsed = true` render collapsed (heading + subtotal visible, "Show details" toggle to expand). Subtotals shown when `show_subtotal = true`. Grand total rendered. Description expandable detail per line item. Discount items render with distinct styling (negative values shown correctly).
 
-- [ ] **Update single-quotes.php template** · Reasoning: `low` — 3-line insertion with `function_exists` guards · (Spec: §Frontend Rendering — Render Order)
+- [x] **Update single-quotes.php template** · Reasoning: `low` — 3-line insertion with `function_exists` guards · (Spec: §Frontend Rendering — Render Order)
   - Artifacts: `single-quotes.php`
   - Interfaces: Template rendering order
   - Done When: Post content renders first (via `the_content()`), then `tah_render_quote_pricing(get_the_ID())` renders below, then `tah_render_quote_sections()` for info sections. Quotes with no pricing data show no extra output (backward compat).
@@ -251,7 +251,7 @@
     }
     ```
 
-- [ ] **Add frontend CSS** · Reasoning: `medium` — must match existing Excel-pasted table styling + print-friendly `@media print` rules · (Spec: §Frontend Rendering)
+- [x] **Add frontend CSS** · Reasoning: `medium` — must match existing Excel-pasted table styling + print-friendly `@media print` rules · (Spec: §Frontend Rendering)
   - Artifacts: `assets/css/_content.css`.
   - Done When: Tables match the visual style of existing Excel-pasted quote tables. Print-friendly via `@media print`.
 
@@ -269,13 +269,13 @@
 
 ### Tasks
 
-- [ ] **Add pricing preset field to trade taxonomy** · Reasoning: `medium` — JSON preset builder UI on taxonomy screen; must handle group + item structure · (Spec: §Admin UX — Trade Pricing Presets)
+- [x] **Add pricing preset field to trade taxonomy** · Reasoning: `medium` — JSON preset builder UI on taxonomy screen; must handle group + item structure · (Spec: §Admin UX — Trade Pricing Presets)
   - Artifacts: `inc/modules/pricing/class-pricing-trade-presets.php`
   - Interfaces: JSON preset builder on Trade add/edit screen. Term meta key: `_tah_trade_pricing_preset`
   - Depends On: Phase 2 (metabox)
   - Done When: Trade edit screen shows a preset builder for configuring default groups and items. Preset saved as JSON to term meta.
 
-- [ ] **Wire preset population on trade selection** · Reasoning: `medium` — AJAX handler with SKU lookup, missing-SKU fallback, and overwrite guard · (Spec: §Trade Pricing Presets — Behavior)
+- [x] **Wire preset population on trade selection** · Reasoning: `medium` — AJAX handler with SKU lookup, missing-SKU fallback, and overwrite guard · (Spec: §Trade Pricing Presets — Behavior)
   - Artifacts: Quote pricing metabox JS + PHP handler
   - Interfaces: AJAX handler triggered when trade is selected on a new quote
   - Done When: Selecting a trade populates pricing groups and items from preset. Missing SKUs skipped with admin notice. Already-populated quotes are not overwritten.
