@@ -103,7 +103,7 @@ final class TAH_Price_Formula
      */
     private static function apply_mround(float $value, float $multiple, string $direction)
     {
-        if ($multiple <= 1.0) {
+        if ($multiple <= 0.000001) {
             return round($value, 2);
         }
 

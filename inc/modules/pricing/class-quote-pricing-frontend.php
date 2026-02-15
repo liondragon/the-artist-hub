@@ -37,10 +37,17 @@ final class TAH_Quote_Pricing_Frontend
             return;
         }
 
-        if (!$this->is_standard_quote_format($post_id)) {
+        $quote_format = $this->get_quote_format($post_id);
+        if ($quote_format === 'insurance') {
+            $this->render_insurance_quote($post_id);
             return;
         }
 
+        $this->render_standard_quote($post_id);
+    }
+
+    private function render_standard_quote(int $post_id): void
+    {
         $groups = $this->repository->get_quote_groups($post_id);
         if (empty($groups)) {
             return;
@@ -135,6 +142,140 @@ final class TAH_Quote_Pricing_Frontend
         echo '<span class="tah-pricing-grand-total-label">' . esc_html__('Grand Total', 'the-artist') . '</span>';
         echo '<strong class="tah-pricing-grand-total-value">' . esc_html($this->format_currency($grand_total)) . '</strong>';
         echo '</div>';
+        echo '</section>';
+
+        $markup = trim((string) ob_get_clean());
+        if ($markup !== '') {
+            echo $markup; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+        }
+    }
+
+    private function render_insurance_quote(int $post_id): void
+    {
+        $line_items = $this->repository->get_quote_line_items($post_id);
+        if (empty($line_items)) {
+            return;
+        }
+
+        $quote_tax_rate = $this->to_float(get_post_meta($post_id, '_tah_quote_tax_rate', true));
+        $catalog_meta = $this->get_catalog_meta_by_item_id($line_items);
+        $line_index = 0;
+        $subtotal = 0.0;
+        $tax_total = 0.0;
+        $current_category = '';
+
+        ob_start();
+
+        echo '<section class="tah-quote-pricing tah-quote-pricing-insurance" data-quote-id="' . esc_attr((string) $post_id) . '">';
+        echo '<table class="tah-pricing-table tah-pricing-table-insurance">';
+        echo '<thead>';
+        echo '<tr>';
+        echo '<th scope="col">' . esc_html__('#', 'the-artist') . '</th>';
+        echo '<th scope="col">' . esc_html__('Description', 'the-artist') . '</th>';
+        echo '<th scope="col">' . esc_html__('SKU', 'the-artist') . '</th>';
+        echo '<th scope="col">' . esc_html__('Qty', 'the-artist') . '</th>';
+        echo '<th scope="col">' . esc_html__('Unit Price', 'the-artist') . '</th>';
+        echo '<th scope="col">' . esc_html__('Tax', 'the-artist') . '</th>';
+        echo '<th scope="col">' . esc_html__('Total', 'the-artist') . '</th>';
+        echo '</tr>';
+        echo '</thead>';
+        echo '<tbody>';
+
+        foreach ($line_items as $line_item) {
+            $line_index++;
+            $quantity = $this->to_float($line_item['quantity'] ?? 0);
+            $resolved_price = $this->to_float($line_item['resolved_price'] ?? 0);
+            $material_cost = array_key_exists('material_cost', $line_item) && $line_item['material_cost'] !== null
+                ? $this->to_float($line_item['material_cost'])
+                : 0.0;
+            $labor_cost = array_key_exists('labor_cost', $line_item) && $line_item['labor_cost'] !== null
+                ? $this->to_float($line_item['labor_cost'])
+                : 0.0;
+            $line_sku = isset($line_item['line_sku']) ? trim((string) $line_item['line_sku']) : '';
+            $note = isset($line_item['note']) ? trim((string) $line_item['note']) : '';
+
+            $description = isset($line_item['title']) ? trim((string) $line_item['title']) : '';
+            if ($description === '') {
+                $description = __('Untitled item', 'the-artist');
+            }
+
+            $line_tax_rate = isset($line_item['tax_rate']) && $line_item['tax_rate'] !== null
+                ? $this->to_float($line_item['tax_rate'])
+                : $quote_tax_rate;
+            if ($line_tax_rate < 0) {
+                $line_tax_rate = 0.0;
+            }
+
+            $line_subtotal = round($quantity * $resolved_price, 2);
+            $line_tax_amount = round($quantity * $material_cost * $line_tax_rate, 2);
+            $line_total = round($line_subtotal + $line_tax_amount, 2);
+
+            $subtotal = round($subtotal + $line_subtotal, 2);
+            $tax_total = round($tax_total + $line_tax_amount, 2);
+
+            $pricing_item_id = isset($line_item['pricing_item_id']) ? (int) $line_item['pricing_item_id'] : 0;
+            $category = '';
+            if ($pricing_item_id > 0 && isset($catalog_meta[$pricing_item_id]['category'])) {
+                $category = (string) $catalog_meta[$pricing_item_id]['category'];
+            }
+            if ($category !== '' && $category !== $current_category) {
+                $current_category = $category;
+                echo '<tr class="tah-pricing-insurance-category-row">';
+                echo '<th colspan="7" scope="colgroup">' . esc_html($current_category) . '</th>';
+                echo '</tr>';
+            }
+
+            echo '<tr class="tah-pricing-line-item tah-pricing-line-item-insurance">';
+            echo '<td class="tah-pricing-col-index">' . esc_html((string) $line_index) . '</td>';
+            echo '<td class="tah-pricing-col-item">';
+            echo '<span class="tah-pricing-item-title">' . esc_html($description) . '</span>';
+            if ($material_cost > 0 || $labor_cost > 0) {
+                echo '<span class="tah-pricing-insurance-breakdown">';
+                echo esc_html(
+                    sprintf(
+                        /* translators: 1: material amount, 2: labor amount */
+                        __('Material %1$s + Labor %2$s', 'the-artist'),
+                        $this->format_currency($material_cost),
+                        $this->format_currency($labor_cost)
+                    )
+                );
+                echo '</span>';
+            }
+            echo '</td>';
+            echo '<td class="tah-pricing-col-sku">' . ($line_sku !== '' ? esc_html($line_sku) : '-') . '</td>';
+            echo '<td class="tah-pricing-col-qty">' . esc_html($this->format_quantity($quantity)) . '</td>';
+            echo '<td class="tah-pricing-col-rate">' . esc_html($this->format_currency($resolved_price)) . '</td>';
+            echo '<td class="tah-pricing-col-tax">' . esc_html($this->format_currency($line_tax_amount)) . '</td>';
+            echo '<td class="tah-pricing-col-total">' . esc_html($this->format_currency($line_total)) . '</td>';
+            echo '</tr>';
+
+            if ($note !== '') {
+                echo '<tr class="tah-pricing-insurance-note-row">';
+                echo '<td></td>';
+                echo '<td colspan="6" class="tah-pricing-insurance-note-cell">';
+                echo '<strong class="tah-pricing-insurance-note-label">' . esc_html__('F9 Note:', 'the-artist') . '</strong> ';
+                echo '<span class="tah-pricing-insurance-note-text">' . esc_html($note) . '</span>';
+                echo '</td>';
+                echo '</tr>';
+            }
+        }
+
+        echo '</tbody>';
+        echo '<tfoot>';
+        echo '<tr class="tah-pricing-subtotal-row tah-pricing-insurance-subtotal-row">';
+        echo '<th colspan="6" scope="row">' . esc_html__('Subtotal', 'the-artist') . '</th>';
+        echo '<td class="tah-pricing-subtotal-value">' . esc_html($this->format_currency($subtotal)) . '</td>';
+        echo '</tr>';
+        echo '<tr class="tah-pricing-subtotal-row tah-pricing-insurance-tax-total-row">';
+        echo '<th colspan="6" scope="row">' . esc_html__('Tax Total', 'the-artist') . '</th>';
+        echo '<td class="tah-pricing-subtotal-value">' . esc_html($this->format_currency($tax_total)) . '</td>';
+        echo '</tr>';
+        echo '<tr class="tah-pricing-grand-total-row tah-pricing-insurance-grand-total-row">';
+        echo '<th colspan="6" scope="row">' . esc_html__('Grand Total', 'the-artist') . '</th>';
+        echo '<td class="tah-pricing-grand-total-value">' . esc_html($this->format_currency(round($subtotal + $tax_total, 2))) . '</td>';
+        echo '</tr>';
+        echo '</tfoot>';
+        echo '</table>';
         echo '</section>';
 
         $markup = trim((string) ob_get_clean());
@@ -365,14 +506,48 @@ final class TAH_Quote_Pricing_Frontend
         return in_array($selection_mode, ['all', 'multi', 'single'], true) ? $selection_mode : 'all';
     }
 
-    private function is_standard_quote_format(int $post_id): bool
+    private function get_quote_format(int $post_id): string
     {
         $format = (string) get_post_meta($post_id, self::META_QUOTE_FORMAT, true);
         if ($format === '') {
             $format = self::DEFAULT_QUOTE_FORMAT;
         }
 
-        return $format === self::DEFAULT_QUOTE_FORMAT;
+        $format = strtolower(trim($format));
+        return in_array($format, ['standard', 'insurance'], true) ? $format : self::DEFAULT_QUOTE_FORMAT;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $line_items
+     * @return array<int, array{category: string}>
+     */
+    private function get_catalog_meta_by_item_id(array $line_items): array
+    {
+        $item_ids = [];
+        foreach ($line_items as $line_item) {
+            $item_id = isset($line_item['pricing_item_id']) ? (int) $line_item['pricing_item_id'] : 0;
+            if ($item_id > 0) {
+                $item_ids[$item_id] = true;
+            }
+        }
+
+        if (empty($item_ids)) {
+            return [];
+        }
+
+        $meta_map = [];
+        foreach (array_keys($item_ids) as $item_id) {
+            $catalog_item = $this->repository->get_item_by_id((int) $item_id);
+            if (!is_array($catalog_item)) {
+                continue;
+            }
+
+            $meta_map[(int) $item_id] = [
+                'category' => isset($catalog_item['category']) ? trim((string) $catalog_item['category']) : '',
+            ];
+        }
+
+        return $meta_map;
     }
 
     private function is_discount_item(array $line_item, float $resolved_price, float $line_total): bool

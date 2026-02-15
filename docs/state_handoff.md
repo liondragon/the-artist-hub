@@ -204,4 +204,38 @@
   - Group management controls remain hidden.
   - Margin column and rate badge hidden.
   - Line `Rate` input becomes read-only and displays computed unit price.
-  - Trade preset apply remains standard-only.
+- Trade preset apply remains standard-only.
+
+## Insurance Frontend Template Variant (Phase 6 Task 4) (2026-02-15)
+
+- `TAH_Quote_Pricing_Frontend::render()` is now format-aware:
+  - `_tah_quote_format = insurance` routes to a dedicated insurance renderer.
+  - `standard` behavior is preserved in a separate standard renderer path.
+- Insurance frontend output now renders as one Xactimate-style table with columns:
+  - `#`, `Description`, `SKU`, `Qty`, `Unit Price`, `Tax`, `Total`
+- Insurance totals semantics now match admin calculations:
+  - Line subtotal = `qty * resolved_price`
+  - Line tax = `qty * material_cost * effective_tax_rate`
+  - Effective tax rate = line `tax_rate` when present, otherwise quote `_tah_quote_tax_rate`
+  - Line total = line subtotal + line tax
+  - Footer rows render `Subtotal`, `Tax Total`, and `Grand Total`
+- F9 notes now render as dedicated detail rows directly below their parent line item.
+- Optional trade category visual dividers are supported:
+  - If a line item links to a catalog item with `category`, the renderer emits a category divider row when the category changes.
+
+## Insurance Frontend CSS (Phase 6 Task 5) (2026-02-15)
+
+- Added insurance-specific frontend styling in `assets/css/_content.css` under:
+  - `.tah-quote-pricing-insurance`
+  - `.tah-pricing-table-insurance`
+  - `.tah-pricing-insurance-category-row`
+  - `.tah-pricing-insurance-note-row`
+  - `.tah-pricing-insurance-tax-total-row`
+  - `.tah-pricing-insurance-grand-total-row`
+- Insurance variant is now visually distinct from standard quote tables:
+  - Light blue header treatment for insurance columns.
+  - Dedicated category divider row styling.
+  - F9 note rows rendered with subtle separated background + dashed divider.
+  - Distinct tax/grand-total footer emphasis.
+- Mobile adjustments include narrower insurance column constraints and note text sizing.
+- Print rules now flatten insurance-specific backgrounds to white and keep note rows readable with solid separators.

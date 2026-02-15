@@ -476,6 +476,87 @@ body#tinymce .collapsible:has(.collapsible-content.collapsed) .collapsible-trigg
     font-weight: 700;
 }
 
+.pricing .tah-quote-pricing-insurance {
+    border: 1px solid #d5d9de;
+    background: #fff;
+}
+
+.pricing .tah-pricing-table-insurance {
+    table-layout: auto;
+}
+
+.pricing .tah-pricing-table-insurance thead th {
+    background: #eef4fb;
+    color: #233649;
+}
+
+.pricing .tah-pricing-table-insurance .tah-pricing-col-item {
+    min-width: 18rem;
+}
+
+.pricing .tah-pricing-table-insurance .tah-pricing-col-sku {
+    width: 8rem;
+    font-family: var(--font-secondary);
+    letter-spacing: 0.02em;
+}
+
+.pricing .tah-pricing-table-insurance .tah-pricing-col-tax,
+.pricing .tah-pricing-table-insurance .tah-pricing-col-total {
+    width: 8.5rem;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.pricing .tah-pricing-line-item-insurance .tah-pricing-item-title {
+    display: block;
+}
+
+.pricing .tah-pricing-insurance-breakdown {
+    display: block;
+    margin-top: 0.2rem;
+    color: #5a6572;
+    font-size: 0.8rem;
+}
+
+.pricing .tah-pricing-insurance-category-row th {
+    padding: 0.45rem 0.65rem;
+    border-top: 1px solid #d8dee5;
+    border-bottom: 1px solid #d8dee5;
+    background: #f4f8fc;
+    color: #2a435a;
+    text-align: left;
+    font-size: 0.76rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.pricing .tah-pricing-insurance-note-row td {
+    border-bottom: 1px dashed #d6dbe0;
+    background: #fbfcfd;
+}
+
+.pricing .tah-pricing-insurance-note-cell {
+    padding-top: 0.35rem;
+    padding-bottom: 0.5rem;
+    color: #344252;
+    font-size: 0.84rem;
+}
+
+.pricing .tah-pricing-insurance-note-label {
+    font-weight: 700;
+}
+
+.pricing .tah-pricing-insurance-tax-total-row th,
+.pricing .tah-pricing-insurance-tax-total-row td {
+    background: #f3f6f9;
+}
+
+.pricing .tah-pricing-insurance-grand-total-row th,
+.pricing .tah-pricing-insurance-grand-total-row td {
+    background: #e8eef5;
+    font-weight: 700;
+}
+
 @media (max-width: 780px) {
     .pricing .tah-pricing-table {
         table-layout: auto;
@@ -490,6 +571,20 @@ body#tinymce .collapsible:has(.collapsible-content.collapsed) .collapsible-trigg
     .pricing .tah-pricing-col-total,
     .pricing .tah-pricing-col-qty {
         width: auto;
+    }
+
+    .pricing .tah-pricing-table-insurance .tah-pricing-col-item {
+        min-width: 12rem;
+    }
+
+    .pricing .tah-pricing-table-insurance .tah-pricing-col-sku,
+    .pricing .tah-pricing-table-insurance .tah-pricing-col-tax,
+    .pricing .tah-pricing-table-insurance .tah-pricing-col-total {
+        width: auto;
+    }
+
+    .pricing .tah-pricing-insurance-note-cell {
+        font-size: 0.8rem;
     }
 }
 
@@ -532,5 +627,23 @@ body#tinymce .collapsible:has(.collapsible-content.collapsed) .collapsible-trigg
 
     .pricing .tah-pricing-line-item-excluded {
         opacity: 1;
+    }
+
+    .pricing .tah-quote-pricing-insurance {
+        border-color: #bdbdbd;
+    }
+
+    .pricing .tah-pricing-table-insurance thead th,
+    .pricing .tah-pricing-insurance-category-row th,
+    .pricing .tah-pricing-insurance-tax-total-row th,
+    .pricing .tah-pricing-insurance-tax-total-row td,
+    .pricing .tah-pricing-insurance-grand-total-row th,
+    .pricing .tah-pricing-insurance-grand-total-row td,
+    .pricing .tah-pricing-insurance-note-row td {
+        background: #fff !important;
+    }
+
+    .pricing .tah-pricing-insurance-note-row td {
+        border-bottom-style: solid;
     }
 }

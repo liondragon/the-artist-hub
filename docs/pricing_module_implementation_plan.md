@@ -361,13 +361,13 @@
   - Depends On: Phase 2 (base metabox)
   - Done When: Insurance items save `material_cost`, `labor_cost`, `line_sku`, `tax_rate`, `note` to line items table. Unit price auto-computed from material + labor. All items in one implicit group (`group_id` references a single auto-created group). Totals include subtotal + tax total + grand total.
 
-- [ ] **Implement insurance frontend template variant** · Reasoning: `medium` — format-aware branch in existing renderer with Xactimate-style table and subtotal/tax/grand total · (Spec: §Frontend Rendering — Insurance Format)
+- [x] **Implement insurance frontend template variant** · Reasoning: `medium` — format-aware branch in existing renderer with Xactimate-style table and subtotal/tax/grand total · (Spec: §Frontend Rendering — Insurance Format)
   - Artifacts: `inc/modules/pricing/class-quote-pricing-frontend.php` (modification)
   - Interfaces: Format-aware rendering in `tah_render_quote_pricing()`
   - Depends On: Phase 3 (base frontend rendering)
   - Done When: Insurance quotes render Xactimate-style table: #, Description, SKU, Qty, Unit Price, Tax, Total. F9 notes render as indented detail rows. Subtotal, tax total, grand total at bottom. Trade categories as optional visual section dividers.
 
-- [ ] **Add insurance frontend CSS** · Reasoning: `low` — additive CSS for insurance table variant + print rules · (Spec: §Frontend Rendering — Insurance Format)
+- [x] **Add insurance frontend CSS** · Reasoning: `low` — additive CSS for insurance table variant + print rules · (Spec: §Frontend Rendering — Insurance Format)
   - Artifacts: `assets/css/_content.css`
   - Done When: Insurance table styled distinctly from standard format. Print-friendly.
 

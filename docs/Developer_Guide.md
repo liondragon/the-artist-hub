@@ -38,7 +38,7 @@ This repo has a few theme subsystems that are easy to break via load-order or Wo
 ### Registry
 - `inc/modules/class-module-registry.php` — `TAH_Module_Registry::boot()`
 - Idempotent (static `$booted` guard)
-- Modules are loaded in **explicit, fixed order** — currently only Info Sections
+- Modules are loaded in **explicit, fixed order** — currently Info Sections + Pricing
 
 ### Module Contract (Conventions)
 Each module must provide:
@@ -97,7 +97,7 @@ CPT definitions live in `inc/cpt/`:
 | Term Meta Key | Module | Purpose |
 |---|---|---|
 | `_tah_trade_default_sections` | Info Sections | Ordered preset list of section keys |
-| `_tah_trade_context` | Pricing | `standard`, `insurance`, or `all` — controls trade visibility per quote format |
+| `_tah_trade_context` | Pricing | `standard`, `insurance`, or `both` — controls trade visibility per quote format |
 | `_tah_trade_pricing_preset` | Pricing | JSON preset of default groups and line items |
 
 ### Loading Order
@@ -113,6 +113,11 @@ Use custom tables (not post meta) when data is:
 - Relational (parent-child: quote → groups → line items)
 - Queried in aggregate (catalog search, price recalculation across all quotes)
 - Expected to migrate to another framework (Laravel, Next.js)
+
+### Pricing Module Tables
+- `tah_pricing_items`: Catalog items (SKU, rate, history)
+- `tah_quote_groups`: Sections within a quote
+- `tah_quote_line_items`: Individual line items linked to groups and catalog items
 
 ### Schema Migration Pattern
 - Migration files live in `inc/migrations/`
@@ -188,7 +193,7 @@ The Info Sections system is a metabox-driven content system for Quotes:
 - Admin styling (metabox UI, icons, etc.):
   - `assets/css/admin.css`
 - Quote frontend template integration:
-  - `single-quotes.php` (renders sections if `tah_render_quote_sections()` exists)
+  - `single-quotes.php` (renders `the_content()`, then pricing via `tah_render_quote_pricing()`, then sections via `tah_render_quote_sections()`)
 
 ### Quote Sections Flow
 1. When a new Quote is created and assigned a Trade, `maybe_initialize_quote_sections_order()` copies the Trade's recipe into the Quote's `_tah_section_order` meta.
@@ -202,7 +207,39 @@ The Info Sections system is a metabox-driven content system for Quotes:
 3. Each row has a hidden input (`tah_trade_sections[key] = 1|0`) that tracks inclusion.
 4. `save_meta()` reads the submitted associative array, filters for `value === '1'`, and saves the ordered key list to term meta.
 
+
 ---
+
+## Pricing Module
+
+### What It Is
+The Pricing Module provides a structured way to manage catalog items and build quotes with line-item pricing. It replaces free-form pricing with a data-driven approach.
+
+### Key Concepts
+- **Catalog Items**: Stored in `tah_pricing_items`. Have a SKU, base price, and trade association.
+- **Quote Formats**: controlled by `_tah_quote_format` post meta.
+  - `standard`: Grouped line items (e.g., "Hallway", "Kitchen").
+  - `insurance`: Flat list with material/labor breakdown and tax calculations.
+- **Price Formula**: Line items can use formulas to modify base prices:
+  - `$` (Default): Use catalog price.
+  - `$ +150`: Add $150 to catalog price.
+  - `$ *1.2`: Add 20% to catalog price.
+  - `500`: Override with flat $500.
+
+### Data Flow
+1. **Catalog Management**: Admin manages items in "Pricing Catalog".
+2. **Quote Creation**:
+   - User selects a Trade.
+   - Initial groups populated from Trade Presets via `_tah_trade_pricing_preset` (JSON).
+3. **Editing**:
+   - `TAH_Quote_Pricing_Metabox` loads current data from custom tables.
+   - User edits groups/items via AJAX (`tah_save_pricing`).
+   - `TAH_Price_Formula` resolves final prices before saving.
+4. **Display**:
+   - `class-quote-pricing-frontend.php` renders the table on `single-quotes.php`.
+
+---
+
 
 ## Admin CSS Architecture
 
@@ -432,7 +469,7 @@ add_action('admin_menu', function() {
 
 | Template | CPT | Notes |
 |----------|-----|-------|
-| `single-quotes.php` | `quotes` | Renders info sections via `tah_render_quote_sections()` |
+| `single-quotes.php` | `quotes` | Renders `the_content()`, then pricing (`tah_render_quote_pricing()`), then info sections (`tah_render_quote_sections()`) |
 | `single-projects.php` | `projects` | Project detail page |
 | `archive-equipment.php` | `equipment` | Equipment listing |
 | `front-page.php` | — | Homepage |
