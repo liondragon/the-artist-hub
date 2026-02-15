@@ -239,3 +239,23 @@
   - Distinct tax/grand-total footer emphasis.
 - Mobile adjustments include narrower insurance column constraints and note text sizing.
 - Print rules now flatten insurance-specific backgrounds to white and keep note rows readable with solid separators.
+
+## Pricing Payload Refactor (Behavior-Preserving Split) (2026-02-15)
+
+- `TAH_Quote_Pricing_Metabox::persist_pricing_payload()` remains the orchestration entrypoint but no longer performs all row-building inline.
+- Introduced helper classes under `inc/modules/pricing/`:
+  - `TAH_Pricing_Group_Payload_Processor` (`class-pricing-group-payload-processor.php`)
+    - Insurance group normalization behavior (`empty` -> implicit insurance group, non-empty -> first group only)
+    - Group row sanitization + normalized values
+    - Group client-key to persisted-ID map generation
+  - `TAH_Pricing_Line_Item_Payload_Processor` (`class-pricing-line-item-payload-processor.php`)
+    - Line item sanitization/normalization
+    - Catalog price lookup cache for formula resolution
+    - Standard formula resolution via `TAH_Price_Formula`
+    - Insurance resolved-price semantics (`material_cost + labor_cost`, override mode)
+    - Item type normalization (`standard` auto-switches to `discount` for negative resolved prices)
+- Module bootstrap now requires both helper files before `class-quote-pricing-metabox.php` in `TAH_Pricing_Module::load_module_classes()`.
+- No request/API contract changes:
+  - Same metabox fields
+  - Same AJAX/save endpoints
+  - Same repository writes and `_tah_prices_resolved_at` update behavior

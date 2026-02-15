@@ -141,6 +141,34 @@ if (version_compare($installed_version, TAH_PRICING_DB_VERSION, '<')) {
 
 ---
 
+## Pricing Module (Current Map)
+
+### Boot + Core
+- Module bootstrap: `inc/modules/pricing/class-pricing-module.php`
+- Repository (custom tables CRUD): `inc/modules/pricing/class-pricing-repository.php`
+- Formula parser/resolver: `inc/modules/pricing/class-price-formula.php`
+
+### Admin (Quote Edit + Save Path)
+- Quote edit shell/layout: `inc/modules/pricing/class-quote-edit-screen.php`
+- Pricing metabox UI + request handlers: `inc/modules/pricing/class-quote-pricing-metabox.php`
+- Group payload normalization/mapping helper: `inc/modules/pricing/class-pricing-group-payload-processor.php`
+- Line-item payload build/resolution helper: `inc/modules/pricing/class-pricing-line-item-payload-processor.php`
+
+### Frontend
+- Pricing renderer: `inc/modules/pricing/class-quote-pricing-frontend.php`
+  - Format-aware branch: `standard` grouped tables vs `insurance` Xactimate-style table
+- Frontend template wiring: `single-quotes.php` calls `tah_render_quote_pricing()` between `the_content()` and `tah_render_quote_sections()`
+
+### Trade + Catalog
+- Catalog admin: `inc/modules/pricing/class-pricing-catalog-admin.php`
+- Trade pricing preset + trade context fields: `inc/modules/pricing/class-pricing-trade-presets.php`
+
+### Maintenance
+- View tracking: `inc/modules/pricing/class-quote-view-tracking.php`
+- Cascade delete hook registration: `TAH_Pricing_Module::handle_before_delete_post()`
+
+---
+
 ## Info Sections Module
 
 ### What It Is

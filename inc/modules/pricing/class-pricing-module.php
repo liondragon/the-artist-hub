@@ -106,6 +106,8 @@ final class TAH_Pricing_Module
             __DIR__ . '/class-pricing-catalog-admin.php',
             __DIR__ . '/class-pricing-trade-presets.php',
             __DIR__ . '/class-quote-edit-screen.php',
+            __DIR__ . '/class-pricing-group-payload-processor.php',
+            __DIR__ . '/class-pricing-line-item-payload-processor.php',
             __DIR__ . '/class-quote-pricing-metabox.php',
         ];
 

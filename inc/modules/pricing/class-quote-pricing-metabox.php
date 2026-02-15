@@ -454,51 +454,11 @@ final class TAH_Quote_Pricing_Metabox
     private function persist_pricing_payload(int $post_id, array $groups_raw, array $items_raw): array
     {
         $quote_format = $this->normalize_quote_format((string) get_post_meta($post_id, self::META_QUOTE_FORMAT, true));
-        if ($quote_format === 'insurance' && empty($groups_raw)) {
-            $groups_raw[] = [
-                'id' => 0,
-                'client_key' => 'group-insurance',
-                'name' => 'Insurance Items',
-                'description' => '',
-                'selection_mode' => 'all',
-                'show_subtotal' => false,
-                'is_collapsed' => false,
-                'sort_order' => 0,
-            ];
-        } elseif ($quote_format === 'insurance' && !empty($groups_raw)) {
-            $groups_raw = [reset($groups_raw)];
-        }
-
-        $group_rows = [];
-        $group_keys = [];
-
-        foreach ($groups_raw as $index => $group_data) {
-            if (!is_array($group_data)) {
-                continue;
-            }
-
-            $client_key = isset($group_data['client_key']) ? sanitize_key((string) $group_data['client_key']) : '';
-            if ($client_key === '') {
-                $client_key = 'group-temp-' . $index;
-            }
-
-            $group_rows[] = [
-                'id' => isset($group_data['id']) ? max(0, (int) $group_data['id']) : 0,
-                'name' => $quote_format === 'insurance'
-                    ? 'Insurance Items'
-                    : (isset($group_data['name']) ? sanitize_text_field((string) $group_data['name']) : ''),
-                'description' => isset($group_data['description']) ? sanitize_textarea_field((string) $group_data['description']) : '',
-                'selection_mode' => $quote_format === 'insurance'
-                    ? 'all'
-                    : $this->normalize_selection_mode(isset($group_data['selection_mode']) ? (string) $group_data['selection_mode'] : 'all'),
-                'show_subtotal' => $quote_format === 'insurance'
-                    ? false
-                    : !empty($group_data['show_subtotal']),
-                'is_collapsed' => !empty($group_data['is_collapsed']),
-                'sort_order' => max(0, (int) $index),
-            ];
-            $group_keys[] = $client_key;
-        }
+        $group_processor = new TAH_Pricing_Group_Payload_Processor();
+        $groups_raw = $group_processor->normalize_groups_for_quote_format($quote_format, $groups_raw);
+        $group_payload = $group_processor->build_group_rows_with_keys($quote_format, $groups_raw);
+        $group_rows = $group_payload['group_rows'];
+        $group_keys = $group_payload['group_keys'];
 
         $persisted_group_ids = $this->repository->save_quote_groups((int) $post_id, $group_rows);
         if (!empty($group_rows) && empty($persisted_group_ids)) {
@@ -508,123 +468,18 @@ final class TAH_Quote_Pricing_Metabox
             ];
         }
 
-        $group_key_map = [];
-        foreach ($group_keys as $index => $client_key) {
-            $group_id = isset($persisted_group_ids[$index]) ? (int) $persisted_group_ids[$index] : 0;
-            if ($group_id > 0) {
-                $group_key_map[$client_key] = $group_id;
-            }
-        }
+        $group_key_map = $group_processor->build_group_key_map($group_keys, $persisted_group_ids);
 
-        $line_item_rows = [];
-        $catalog_price_cache = [];
         $rounding = (float) get_option('tah_price_rounding', 1);
         $rounding_direction = (string) get_option('tah_price_rounding_direction', TAH_Price_Formula::ROUNDING_NEAREST);
-
-        foreach ($items_raw as $index => $item_data) {
-            if (!is_array($item_data)) {
-                continue;
-            }
-
-            $group_key = isset($item_data['group_key']) ? sanitize_key((string) $item_data['group_key']) : '';
-            $group_id = isset($group_key_map[$group_key]) ? (int) $group_key_map[$group_key] : 0;
-            if ($quote_format === 'insurance' && $group_id <= 0 && !empty($group_key_map)) {
-                $group_id = (int) reset($group_key_map);
-            }
-            if ($group_id <= 0) {
-                continue;
-            }
-
-            $title = isset($item_data['title']) ? sanitize_text_field((string) $item_data['title']) : '';
-            if ($title === '') {
-                continue;
-            }
-
-            $description = isset($item_data['description']) ? sanitize_textarea_field((string) $item_data['description']) : '';
-
-            $quantity = isset($item_data['quantity']) && is_numeric($item_data['quantity'])
-                ? round((float) $item_data['quantity'], 2)
-                : 0.0;
-            if ($quantity <= 0) {
-                $quantity = 1.0;
-            }
-
-            $pricing_item_id = isset($item_data['pricing_item_id']) && (int) $item_data['pricing_item_id'] > 0
-                ? (int) $item_data['pricing_item_id']
-                : null;
-
-            $catalog_price = 0.0;
-            if ($pricing_item_id !== null) {
-                if (!array_key_exists($pricing_item_id, $catalog_price_cache)) {
-                    $catalog_item = $this->repository->get_item_by_id($pricing_item_id);
-                    $catalog_price_cache[$pricing_item_id] = is_array($catalog_item) && isset($catalog_item['unit_price'])
-                        ? (float) $catalog_item['unit_price']
-                        : 0.0;
-                }
-                $catalog_price = (float) $catalog_price_cache[$pricing_item_id];
-            }
-
-            $material_cost = isset($item_data['material_cost']) && is_numeric($item_data['material_cost'])
-                ? round((float) $item_data['material_cost'], 2)
-                : null;
-            $labor_cost = isset($item_data['labor_cost']) && is_numeric($item_data['labor_cost'])
-                ? round((float) $item_data['labor_cost'], 2)
-                : null;
-
-            if ($quote_format === 'insurance') {
-                $material = $material_cost !== null ? $material_cost : 0.0;
-                $labor = $labor_cost !== null ? $labor_cost : 0.0;
-                $resolved_price = round($material + $labor, 2);
-                $formula = [
-                    'mode' => TAH_Price_Formula::MODE_OVERRIDE,
-                    'modifier' => $resolved_price,
-                ];
-            } else {
-                $rate_formula = isset($item_data['rate_formula']) ? trim((string) $item_data['rate_formula']) : '';
-                $formula = TAH_Price_Formula::parse($rate_formula);
-                $resolved_price = TAH_Price_Formula::resolve(
-                    (string) $formula['mode'],
-                    (float) $formula['modifier'],
-                    $catalog_price,
-                    $rounding,
-                    $rounding_direction
-                );
-            }
-
-            $line_sku = isset($item_data['line_sku']) ? sanitize_text_field((string) $item_data['line_sku']) : null;
-            $line_tax_rate = isset($item_data['tax_rate']) && is_numeric($item_data['tax_rate'])
-                ? round((float) $item_data['tax_rate'], 4)
-                : null;
-            $line_note = $quote_format === 'insurance'
-                ? $description
-                : (isset($item_data['note']) ? sanitize_textarea_field((string) $item_data['note']) : null);
-
-            $line_item_rows[] = [
-                'id' => isset($item_data['id']) ? max(0, (int) $item_data['id']) : 0,
-                'group_id' => $group_id,
-                'pricing_item_id' => $pricing_item_id,
-                'item_type' => $this->normalize_item_type(isset($item_data['item_type']) ? (string) $item_data['item_type'] : 'standard', $resolved_price),
-                'title' => $title,
-                'description' => $description,
-                'quantity' => $quantity,
-                'unit_type' => isset($item_data['unit_type']) ? sanitize_text_field((string) $item_data['unit_type']) : 'flat',
-                'price_mode' => $formula['mode'],
-                'price_modifier' => round((float) $formula['modifier'], 2),
-                'resolved_price' => round((float) $resolved_price, 2),
-                'previous_resolved_price' => isset($item_data['previous_resolved_price']) && is_numeric($item_data['previous_resolved_price'])
-                    ? round((float) $item_data['previous_resolved_price'], 2)
-                    : null,
-                'is_selected' => !empty($item_data['is_selected']),
-                'sort_order' => isset($item_data['sort_order'])
-                    ? max(0, (int) $item_data['sort_order'])
-                    : max(0, (int) $index),
-                'material_cost' => $material_cost,
-                'labor_cost' => $labor_cost,
-                'line_sku' => $line_sku,
-                'tax_rate' => $line_tax_rate,
-                'note' => $line_note,
-            ];
-        }
+        $line_item_processor = new TAH_Pricing_Line_Item_Payload_Processor($this->repository);
+        $line_item_rows = $line_item_processor->build_line_item_rows(
+            $items_raw,
+            $group_key_map,
+            $quote_format,
+            $rounding,
+            $rounding_direction
+        );
 
         $persisted_line_item_ids = $this->repository->save_quote_line_items((int) $post_id, $line_item_rows);
         if (!empty($line_item_rows) && empty($persisted_line_item_ids)) {
@@ -953,20 +808,6 @@ final class TAH_Quote_Pricing_Metabox
     {
         $selection_mode = strtolower(trim($selection_mode));
         return in_array($selection_mode, ['all', 'multi', 'single'], true) ? $selection_mode : 'all';
-    }
-
-    private function normalize_item_type(string $item_type, float $resolved_price): string
-    {
-        $item_type = strtolower(trim($item_type));
-        if (!in_array($item_type, ['standard', 'discount'], true)) {
-            $item_type = 'standard';
-        }
-
-        if ($item_type === 'standard' && $resolved_price < 0) {
-            return 'discount';
-        }
-
-        return $item_type;
     }
 
     /**
