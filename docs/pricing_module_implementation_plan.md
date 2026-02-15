@@ -345,17 +345,17 @@
 
 ### Tasks
 
-- [ ] **Add format selector to quote edit screen** · Reasoning: `medium` — dropdown that toggles between two metabox variants and filters trade selector by context · (Spec: §Quote Formats)
+- [x] **Add format selector to quote edit screen** · Reasoning: `medium` — dropdown that toggles between two metabox variants and filters trade selector by context · (Spec: §Quote Formats)
   - Artifacts: `inc/modules/pricing/class-quote-pricing-metabox.php` (modification)
   - Interfaces: Dropdown/toggle at top of pricing metabox. Sets `_tah_quote_format` post meta. Switches between standard and insurance metabox variants. Trade selector filters trades by `_tah_trade_context` matching the selected format.
   - Done When: Format selector persists on save. Choosing "insurance" hides groups UI, shows flat item list + tax rate field, filters trade selector to insurance/both trades. Choosing "standard" shows normal groups UI, filters trades to standard/both.
 
-- [ ] **Add trade context field to trade taxonomy** · Reasoning: `low` — single dropdown on taxonomy edit screen saving to term meta · (Spec: §Quote Formats — Trade Context)
+- [x] **Add trade context field to trade taxonomy** · Reasoning: `low` — single dropdown on taxonomy edit screen saving to term meta · (Spec: §Quote Formats — Trade Context)
   - Artifacts: `inc/modules/pricing/class-pricing-trade-presets.php` or `inc/admin/class-trade-presets.php` (modification)
   - Interfaces: Dropdown on Trade add/edit screen for `_tah_trade_context` term meta: `standard`, `insurance`, `both` (default: `standard`)
   - Done When: Trade context saves and loads correctly. Trade selectors on quote edit screen filter by context. Catalog admin trade dropdown filters by context matching the active catalog type.
 
-- [ ] **Implement insurance metabox variant** · Reasoning: `high` — alternate UI mode with material/labor composition, per-line tax, F9 notes toggle, and insurance-specific auto-suggest filtering · (Spec: §Quote Formats, §Database Schema — insurance columns)
+- [x] **Implement insurance metabox variant** · Reasoning: `high` — alternate UI mode with material/labor composition, per-line tax, F9 notes toggle, and insurance-specific auto-suggest filtering · (Spec: §Quote Formats, §Database Schema — insurance columns)
   - Artifacts: Same metabox file + `assets/js/quote-pricing.js` (additions)
   - Interfaces: Flat line item list with columns: line #, title, SKU, material cost, labor cost, unit price (computed), qty, tax rate, note (F9 toggle). Per-quote sales tax rate field (`_tah_quote_tax_rate`). Auto-suggest queries `catalog_type = 'insurance'` only.
   - Depends On: Phase 2 (base metabox)
@@ -368,7 +368,7 @@
   - Done When: Insurance quotes render Xactimate-style table: #, Description, SKU, Qty, Unit Price, Tax, Total. F9 notes render as indented detail rows. Subtotal, tax total, grand total at bottom. Trade categories as optional visual section dividers.
 
 - [ ] **Add insurance frontend CSS** · Reasoning: `low` — additive CSS for insurance table variant + print rules · (Spec: §Frontend Rendering — Insurance Format)
-  - Artifacts: `assets/css/_content.css` or `pricing-frontend.css` (additions)
+  - Artifacts: `assets/css/_content.css`
   - Done When: Insurance table styled distinctly from standard format. Print-friendly.
 
 - [ ] Verify Phase 6: create insurance trades with `_tah_trade_context = 'insurance'`, add insurance catalog items, create an insurance quote, confirm trade selector shows only insurance trades, add items confirming no standard items appear, save, view frontend, confirm Xactimate-style rendering with correct totals (Manual step #7)

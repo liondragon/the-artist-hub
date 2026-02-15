@@ -16,6 +16,10 @@ final class TAH_Quote_Pricing_Metabox
     private const NONCE_NAME = '_tah_quote_pricing_nonce';
     private const FIELD_GROUPS_JSON = 'tah_quote_pricing_groups_json';
     private const FIELD_ITEMS_JSON = 'tah_quote_pricing_items_json';
+    private const FIELD_QUOTE_FORMAT = 'tah_quote_format';
+    private const FIELD_QUOTE_TAX_RATE = 'tah_quote_tax_rate';
+    private const META_QUOTE_FORMAT = '_tah_quote_format';
+    private const META_QUOTE_TAX_RATE = '_tah_quote_tax_rate';
 
     /**
      * @var TAH_Pricing_Repository
@@ -66,13 +70,19 @@ final class TAH_Quote_Pricing_Metabox
         }
 
         $quote_id = (int) $post->ID;
+        $quote_format = $this->normalize_quote_format((string) get_post_meta($quote_id, self::META_QUOTE_FORMAT, true));
+        $tax_rate_raw = get_post_meta($quote_id, self::META_QUOTE_TAX_RATE, true);
+        $tax_rate = is_numeric($tax_rate_raw) ? $this->format_plain_number((float) $tax_rate_raw) : '';
         $groups = $this->repository->get_quote_groups($quote_id);
         $line_items = $this->repository->get_quote_line_items($quote_id);
 
         if (empty($groups)) {
+            $default_group_name = $quote_format === 'insurance'
+                ? __('Insurance Items', 'the-artist')
+                : __('Base Quote', 'the-artist');
             $groups = [[
                 'id' => 0,
-                'name' => __('Base Quote', 'the-artist'),
+                'name' => $default_group_name,
                 'description' => '',
                 'selection_mode' => 'all',
                 'show_subtotal' => 1,
@@ -86,7 +96,21 @@ final class TAH_Quote_Pricing_Metabox
 
         wp_nonce_field(self::NONCE_ACTION, self::NONCE_NAME);
 
-        echo '<div id="tah-quote-pricing" class="tah-pricing-editor" data-quote-id="' . esc_attr((string) $quote_id) . '">';
+        echo '<div id="tah-quote-pricing" class="tah-pricing-editor" data-quote-id="' . esc_attr((string) $quote_id) . '" data-quote-format="' . esc_attr($quote_format) . '">';
+        echo '<div class="tah-pricing-format-controls">';
+        echo '<label class="tah-pricing-format-field">';
+        echo '<span class="tah-pricing-format-label">' . esc_html__('Quote Format', 'the-artist') . '</span>';
+        echo '<select id="tah-quote-format" name="' . esc_attr(self::FIELD_QUOTE_FORMAT) . '" class="tah-form-control">';
+        echo '<option value="standard" ' . selected($quote_format, 'standard', false) . '>' . esc_html__('Standard', 'the-artist') . '</option>';
+        echo '<option value="insurance" ' . selected($quote_format, 'insurance', false) . '>' . esc_html__('Insurance', 'the-artist') . '</option>';
+        echo '</select>';
+        echo '</label>';
+        echo '<label class="tah-pricing-format-field tah-insurance-tax-rate-field">';
+        echo '<span class="tah-pricing-format-label">' . esc_html__('Sales Tax Rate', 'the-artist') . '</span>';
+        echo '<input type="number" id="tah-quote-tax-rate" name="' . esc_attr(self::FIELD_QUOTE_TAX_RATE) . '" class="tah-form-control" step="0.0001" min="0" value="' . esc_attr($tax_rate) . '" placeholder="0.0000">';
+        echo '</label>';
+        echo '</div>';
+        echo '<p class="description tah-pricing-insurance-hint">' . esc_html__('Insurance format uses a flat line-item list (single implicit group).', 'the-artist') . '</p>';
         echo '<input type="hidden" id="tah-pricing-groups-json" name="' . esc_attr(self::FIELD_GROUPS_JSON) . '" value="">';
         echo '<input type="hidden" id="tah-pricing-items-json" name="' . esc_attr(self::FIELD_ITEMS_JSON) . '" value="">';
 
@@ -108,6 +132,14 @@ final class TAH_Quote_Pricing_Metabox
         echo '<div class="tah-pricing-editor-footer">';
         echo '<button type="button" id="tah-add-group" class="button button-secondary">' . esc_html__('+ Add Group', 'the-artist') . '</button>';
         echo '<span id="tah-pricing-save-status" class="tah-pricing-save-status" aria-live="polite"></span>';
+        echo '<div id="tah-pricing-subtotal-row" class="tah-pricing-summary-row">';
+        echo '<span class="tah-pricing-summary-label">' . esc_html__('Subtotal', 'the-artist') . '</span>';
+        echo '<strong id="tah-pricing-subtotal-value" class="tah-pricing-summary-value">$0.00</strong>';
+        echo '</div>';
+        echo '<div id="tah-pricing-tax-total-row" class="tah-pricing-summary-row">';
+        echo '<span class="tah-pricing-summary-label">' . esc_html__('Tax Total', 'the-artist') . '</span>';
+        echo '<strong id="tah-pricing-tax-total-value" class="tah-pricing-summary-value">$0.00</strong>';
+        echo '</div>';
         echo '<div class="tah-pricing-grand-total-row">';
         echo '<span class="tah-pricing-grand-total-label">' . esc_html__('Grand Total', 'the-artist') . '</span>';
         echo '<strong id="tah-pricing-grand-total-value" class="tah-pricing-grand-total-value">$0.00</strong>';
@@ -144,6 +176,8 @@ final class TAH_Quote_Pricing_Metabox
             return;
         }
 
+        $this->persist_quote_format_meta_from_request((int) $post_id, $_POST);
+
         if (!isset($_POST[self::FIELD_GROUPS_JSON], $_POST[self::FIELD_ITEMS_JSON])) {
             return;
         }
@@ -178,6 +212,8 @@ final class TAH_Quote_Pricing_Metabox
         if (!current_user_can('edit_post', $quote_id)) {
             wp_send_json_error(['message' => __('Unauthorized.', 'the-artist')], 403);
         }
+
+        $this->persist_quote_format_meta_from_request($quote_id, $_POST);
 
         $groups_raw = $this->decode_json_array(isset($_POST['groups_json']) ? wp_unslash((string) $_POST['groups_json']) : '');
         $items_raw = $this->decode_json_array(isset($_POST['items_json']) ? wp_unslash((string) $_POST['items_json']) : '');
@@ -227,8 +263,11 @@ final class TAH_Quote_Pricing_Metabox
             wp_send_json_success(['items' => []]);
         }
 
-        $catalog_type = (string) get_post_meta($quote_id, '_tah_quote_format', true);
-        if (!in_array($catalog_type, ['standard', 'insurance'], true)) {
+        $catalog_type = isset($_POST[self::FIELD_QUOTE_FORMAT])
+            ? sanitize_key(wp_unslash((string) $_POST[self::FIELD_QUOTE_FORMAT]))
+            : (string) get_post_meta($quote_id, self::META_QUOTE_FORMAT, true);
+        $catalog_type = $this->normalize_quote_format($catalog_type);
+        if ($catalog_type === '') {
             $catalog_type = 'standard';
         }
 
@@ -291,10 +330,10 @@ final class TAH_Quote_Pricing_Metabox
             wp_send_json_error(['message' => __('Unauthorized.', 'the-artist')], 403);
         }
 
-        $quote_format = (string) get_post_meta($quote_id, '_tah_quote_format', true);
-        if ($quote_format === '') {
-            $quote_format = 'standard';
-        }
+        $quote_format = isset($_POST[self::FIELD_QUOTE_FORMAT])
+            ? sanitize_key(wp_unslash((string) $_POST[self::FIELD_QUOTE_FORMAT]))
+            : (string) get_post_meta($quote_id, self::META_QUOTE_FORMAT, true);
+        $quote_format = $this->normalize_quote_format($quote_format);
         if ($quote_format !== 'standard') {
             wp_send_json_success([
                 'applied' => false,
@@ -414,6 +453,22 @@ final class TAH_Quote_Pricing_Metabox
      */
     private function persist_pricing_payload(int $post_id, array $groups_raw, array $items_raw): array
     {
+        $quote_format = $this->normalize_quote_format((string) get_post_meta($post_id, self::META_QUOTE_FORMAT, true));
+        if ($quote_format === 'insurance' && empty($groups_raw)) {
+            $groups_raw[] = [
+                'id' => 0,
+                'client_key' => 'group-insurance',
+                'name' => 'Insurance Items',
+                'description' => '',
+                'selection_mode' => 'all',
+                'show_subtotal' => false,
+                'is_collapsed' => false,
+                'sort_order' => 0,
+            ];
+        } elseif ($quote_format === 'insurance' && !empty($groups_raw)) {
+            $groups_raw = [reset($groups_raw)];
+        }
+
         $group_rows = [];
         $group_keys = [];
 
@@ -429,10 +484,16 @@ final class TAH_Quote_Pricing_Metabox
 
             $group_rows[] = [
                 'id' => isset($group_data['id']) ? max(0, (int) $group_data['id']) : 0,
-                'name' => isset($group_data['name']) ? sanitize_text_field((string) $group_data['name']) : '',
+                'name' => $quote_format === 'insurance'
+                    ? 'Insurance Items'
+                    : (isset($group_data['name']) ? sanitize_text_field((string) $group_data['name']) : ''),
                 'description' => isset($group_data['description']) ? sanitize_textarea_field((string) $group_data['description']) : '',
-                'selection_mode' => $this->normalize_selection_mode(isset($group_data['selection_mode']) ? (string) $group_data['selection_mode'] : 'all'),
-                'show_subtotal' => !empty($group_data['show_subtotal']),
+                'selection_mode' => $quote_format === 'insurance'
+                    ? 'all'
+                    : $this->normalize_selection_mode(isset($group_data['selection_mode']) ? (string) $group_data['selection_mode'] : 'all'),
+                'show_subtotal' => $quote_format === 'insurance'
+                    ? false
+                    : !empty($group_data['show_subtotal']),
                 'is_collapsed' => !empty($group_data['is_collapsed']),
                 'sort_order' => max(0, (int) $index),
             ];
@@ -467,6 +528,9 @@ final class TAH_Quote_Pricing_Metabox
 
             $group_key = isset($item_data['group_key']) ? sanitize_key((string) $item_data['group_key']) : '';
             $group_id = isset($group_key_map[$group_key]) ? (int) $group_key_map[$group_key] : 0;
+            if ($quote_format === 'insurance' && $group_id <= 0 && !empty($group_key_map)) {
+                $group_id = (int) reset($group_key_map);
+            }
             if ($group_id <= 0) {
                 continue;
             }
@@ -476,12 +540,14 @@ final class TAH_Quote_Pricing_Metabox
                 continue;
             }
 
-            $rate_formula = isset($item_data['rate_formula']) ? trim((string) $item_data['rate_formula']) : '';
-            $formula = TAH_Price_Formula::parse($rate_formula);
+            $description = isset($item_data['description']) ? sanitize_textarea_field((string) $item_data['description']) : '';
 
             $quantity = isset($item_data['quantity']) && is_numeric($item_data['quantity'])
                 ? round((float) $item_data['quantity'], 2)
                 : 0.0;
+            if ($quantity <= 0) {
+                $quantity = 1.0;
+            }
 
             $pricing_item_id = isset($item_data['pricing_item_id']) && (int) $item_data['pricing_item_id'] > 0
                 ? (int) $item_data['pricing_item_id']
@@ -498,13 +564,40 @@ final class TAH_Quote_Pricing_Metabox
                 $catalog_price = (float) $catalog_price_cache[$pricing_item_id];
             }
 
-            $resolved_price = TAH_Price_Formula::resolve(
-                (string) $formula['mode'],
-                (float) $formula['modifier'],
-                $catalog_price,
-                $rounding,
-                $rounding_direction
-            );
+            $material_cost = isset($item_data['material_cost']) && is_numeric($item_data['material_cost'])
+                ? round((float) $item_data['material_cost'], 2)
+                : null;
+            $labor_cost = isset($item_data['labor_cost']) && is_numeric($item_data['labor_cost'])
+                ? round((float) $item_data['labor_cost'], 2)
+                : null;
+
+            if ($quote_format === 'insurance') {
+                $material = $material_cost !== null ? $material_cost : 0.0;
+                $labor = $labor_cost !== null ? $labor_cost : 0.0;
+                $resolved_price = round($material + $labor, 2);
+                $formula = [
+                    'mode' => TAH_Price_Formula::MODE_OVERRIDE,
+                    'modifier' => $resolved_price,
+                ];
+            } else {
+                $rate_formula = isset($item_data['rate_formula']) ? trim((string) $item_data['rate_formula']) : '';
+                $formula = TAH_Price_Formula::parse($rate_formula);
+                $resolved_price = TAH_Price_Formula::resolve(
+                    (string) $formula['mode'],
+                    (float) $formula['modifier'],
+                    $catalog_price,
+                    $rounding,
+                    $rounding_direction
+                );
+            }
+
+            $line_sku = isset($item_data['line_sku']) ? sanitize_text_field((string) $item_data['line_sku']) : null;
+            $line_tax_rate = isset($item_data['tax_rate']) && is_numeric($item_data['tax_rate'])
+                ? round((float) $item_data['tax_rate'], 4)
+                : null;
+            $line_note = $quote_format === 'insurance'
+                ? $description
+                : (isset($item_data['note']) ? sanitize_textarea_field((string) $item_data['note']) : null);
 
             $line_item_rows[] = [
                 'id' => isset($item_data['id']) ? max(0, (int) $item_data['id']) : 0,
@@ -512,7 +605,7 @@ final class TAH_Quote_Pricing_Metabox
                 'pricing_item_id' => $pricing_item_id,
                 'item_type' => $this->normalize_item_type(isset($item_data['item_type']) ? (string) $item_data['item_type'] : 'standard', $resolved_price),
                 'title' => $title,
-                'description' => isset($item_data['description']) ? sanitize_textarea_field((string) $item_data['description']) : '',
+                'description' => $description,
                 'quantity' => $quantity,
                 'unit_type' => isset($item_data['unit_type']) ? sanitize_text_field((string) $item_data['unit_type']) : 'flat',
                 'price_mode' => $formula['mode'],
@@ -525,17 +618,11 @@ final class TAH_Quote_Pricing_Metabox
                 'sort_order' => isset($item_data['sort_order'])
                     ? max(0, (int) $item_data['sort_order'])
                     : max(0, (int) $index),
-                'material_cost' => isset($item_data['material_cost']) && is_numeric($item_data['material_cost'])
-                    ? round((float) $item_data['material_cost'], 2)
-                    : null,
-                'labor_cost' => isset($item_data['labor_cost']) && is_numeric($item_data['labor_cost'])
-                    ? round((float) $item_data['labor_cost'], 2)
-                    : null,
-                'line_sku' => isset($item_data['line_sku']) ? sanitize_text_field((string) $item_data['line_sku']) : null,
-                'tax_rate' => isset($item_data['tax_rate']) && is_numeric($item_data['tax_rate'])
-                    ? round((float) $item_data['tax_rate'], 4)
-                    : null,
-                'note' => isset($item_data['note']) ? sanitize_textarea_field((string) $item_data['note']) : null,
+                'material_cost' => $material_cost,
+                'labor_cost' => $labor_cost,
+                'line_sku' => $line_sku,
+                'tax_rate' => $line_tax_rate,
+                'note' => $line_note,
             ];
         }
 
@@ -588,6 +675,7 @@ final class TAH_Quote_Pricing_Metabox
             'ajaxSearchAction' => 'tah_search_pricing_items',
             'ajaxApplyPresetAction' => 'tah_apply_trade_pricing_preset',
             'ajaxNonce' => wp_create_nonce('tah_pricing_nonce'),
+            'tradeContexts' => $this->get_trade_context_map(),
             'rounding' => (float) get_option('tah_price_rounding', 1),
             'roundingDirection' => (string) get_option('tah_price_rounding_direction', TAH_Price_Formula::ROUNDING_NEAREST),
             'labels' => [
@@ -611,6 +699,7 @@ final class TAH_Quote_Pricing_Metabox
                 'presetAlreadyPopulated' => __('Pricing is already populated for this quote. Preset was not applied.', 'the-artist'),
                 'presetUnsupportedFormat' => __('Pricing presets apply only to standard quotes.', 'the-artist'),
                 'presetSkipped' => __('Some preset items were skipped because they no longer exist in the catalog.', 'the-artist'),
+                'insuranceGroupName' => __('Insurance Items', 'the-artist'),
             ],
         ]);
     }
@@ -720,9 +809,13 @@ final class TAH_Quote_Pricing_Metabox
         echo '<th class="tah-col-handle"></th>';
         echo '<th class="tah-col-index">#</th>';
         echo '<th class="tah-col-item">' . esc_html__('Item', 'the-artist') . '</th>';
-        echo '<th class="tah-col-description">' . esc_html__('Description', 'the-artist') . '</th>';
+        echo '<th class="tah-col-sku tah-col-insurance">' . esc_html__('SKU', 'the-artist') . '</th>';
+        echo '<th class="tah-col-description" data-standard-label="' . esc_attr__('Description', 'the-artist') . '" data-insurance-label="' . esc_attr__('F9 Note', 'the-artist') . '">' . esc_html__('Description', 'the-artist') . '</th>';
+        echo '<th class="tah-col-material tah-col-insurance">' . esc_html__('Material', 'the-artist') . '</th>';
+        echo '<th class="tah-col-labor tah-col-insurance">' . esc_html__('Labor', 'the-artist') . '</th>';
         echo '<th class="tah-col-qty">' . esc_html__('Qty', 'the-artist') . '</th>';
-        echo '<th class="tah-col-rate">' . esc_html__('Rate', 'the-artist') . '</th>';
+        echo '<th class="tah-col-rate" data-standard-label="' . esc_attr__('Rate', 'the-artist') . '" data-insurance-label="' . esc_attr__('Unit Price', 'the-artist') . '">' . esc_html__('Rate', 'the-artist') . '</th>';
+        echo '<th class="tah-col-tax tah-col-insurance">' . esc_html__('Tax', 'the-artist') . '</th>';
         echo '<th class="tah-col-amount">' . esc_html__('Amount', 'the-artist') . '</th>';
         echo '<th class="tah-col-margin">' . esc_html__('Margin', 'the-artist') . '</th>';
         echo '<th class="tah-col-actions"></th>';
@@ -784,6 +877,7 @@ final class TAH_Quote_Pricing_Metabox
             ? (float) $line_item['tax_rate']
             : null;
         $note = isset($line_item['note']) ? (string) $line_item['note'] : '';
+        $description_or_note = $description !== '' ? $description : $note;
 
         $amount = round($quantity * $resolved_price, 2);
         $qty_formula = $this->format_plain_number($quantity);
@@ -802,15 +896,19 @@ final class TAH_Quote_Pricing_Metabox
         echo '<input type="hidden" class="tah-line-item-type" value="' . esc_attr($item_type) . '">';
         echo '<input type="hidden" class="tah-line-unit-type" value="' . esc_attr($unit_type) . '">';
         echo '<input type="hidden" class="tah-line-is-selected" value="' . esc_attr($is_selected ? '1' : '0') . '">';
-        echo '<input type="hidden" class="tah-line-material-cost" value="' . esc_attr($material_cost !== null ? (string) $material_cost : '') . '">';
-        echo '<input type="hidden" class="tah-line-labor-cost" value="' . esc_attr($labor_cost !== null ? (string) $labor_cost : '') . '">';
-        echo '<input type="hidden" class="tah-line-line-sku" value="' . esc_attr($line_sku) . '">';
-        echo '<input type="hidden" class="tah-line-tax-rate" value="' . esc_attr($tax_rate !== null ? (string) $tax_rate : '') . '">';
         echo '<input type="hidden" class="tah-line-note" value="' . esc_attr($note) . '">';
         echo '<input type="hidden" class="tah-line-previous-resolved-price" value="' . esc_attr($previous_resolved_price !== null ? (string) $previous_resolved_price : '') . '">';
         echo '</td>';
 
-        echo '<td class="tah-cell-description"><input type="text" class="tah-form-control tah-line-description" value="' . esc_attr($description) . '" placeholder="' . esc_attr__('Description', 'the-artist') . '"></td>';
+        echo '<td class="tah-cell-sku tah-cell-insurance"><input type="text" class="tah-form-control tah-line-line-sku" value="' . esc_attr($line_sku) . '" placeholder="' . esc_attr__('SKU', 'the-artist') . '"></td>';
+
+        echo '<td class="tah-cell-description">';
+        echo '<button type="button" class="button-link tah-line-note-toggle tah-cell-insurance" aria-label="' . esc_attr__('Toggle F9 note', 'the-artist') . '" title="' . esc_attr__('Toggle F9 note', 'the-artist') . '">F9</button>';
+        echo '<input type="text" class="tah-form-control tah-line-description" value="' . esc_attr($description_or_note) . '" placeholder="' . esc_attr__('Description', 'the-artist') . '">';
+        echo '</td>';
+
+        echo '<td class="tah-cell-material tah-cell-insurance"><input type="number" step="0.01" class="tah-form-control tah-line-material-cost" value="' . esc_attr($material_cost !== null ? (string) $material_cost : '') . '" placeholder="0.00"></td>';
+        echo '<td class="tah-cell-labor tah-cell-insurance"><input type="number" step="0.01" class="tah-form-control tah-line-labor-cost" value="' . esc_attr($labor_cost !== null ? (string) $labor_cost : '') . '" placeholder="0.00"></td>';
 
         echo '<td class="tah-cell-qty">';
         echo '<input type="text" class="tah-form-control tah-line-qty" value="' . esc_attr($this->format_plain_number($quantity)) . '" data-formula="' . esc_attr($qty_formula) . '" data-resolved="' . esc_attr((string) $quantity) . '">';
@@ -822,6 +920,11 @@ final class TAH_Quote_Pricing_Metabox
         echo '<span class="tah-badge ' . esc_attr($badge['class']) . ' tah-line-rate-badge">' . esc_html($badge['label']) . '</span>';
         echo '<input type="hidden" class="tah-line-catalog-price" value="' . esc_attr((string) $catalog_price) . '">';
         echo '</div>';
+        echo '</td>';
+
+        echo '<td class="tah-cell-tax tah-cell-insurance">';
+        echo '<input type="number" step="0.0001" min="0" class="tah-form-control tah-line-tax-rate" value="' . esc_attr($tax_rate !== null ? (string) $tax_rate : '') . '" placeholder="' . esc_attr__('Quote default', 'the-artist') . '">';
+        echo '<span class="tah-line-tax-amount">$0.00</span>';
         echo '</td>';
 
         echo '<td class="tah-cell-amount"><span class="tah-line-amount" data-amount="' . esc_attr((string) $amount) . '">' . esc_html($this->format_currency($amount)) . '</span></td>';
@@ -937,6 +1040,85 @@ final class TAH_Quote_Pricing_Metabox
     {
         return !empty($this->repository->get_quote_groups($quote_id))
             || !empty($this->repository->get_quote_line_items($quote_id));
+    }
+
+    /**
+     * @param array<string, mixed> $request
+     */
+    private function persist_quote_format_meta_from_request(int $post_id, array $request): void
+    {
+        if (isset($request[self::FIELD_QUOTE_FORMAT])) {
+            $quote_format = $this->normalize_quote_format(
+                sanitize_key(wp_unslash((string) $request[self::FIELD_QUOTE_FORMAT]))
+            );
+            update_post_meta($post_id, self::META_QUOTE_FORMAT, $quote_format);
+        }
+
+        if (!array_key_exists(self::FIELD_QUOTE_TAX_RATE, $request)) {
+            return;
+        }
+
+        $raw_tax_rate = trim((string) wp_unslash((string) $request[self::FIELD_QUOTE_TAX_RATE]));
+        if ($raw_tax_rate === '') {
+            delete_post_meta($post_id, self::META_QUOTE_TAX_RATE);
+            return;
+        }
+
+        if (!is_numeric($raw_tax_rate)) {
+            return;
+        }
+
+        $tax_rate = round((float) $raw_tax_rate, 4);
+        if ($tax_rate < 0) {
+            $tax_rate = 0.0;
+        }
+
+        update_post_meta($post_id, self::META_QUOTE_TAX_RATE, $tax_rate);
+    }
+
+    private function normalize_quote_format(string $quote_format): string
+    {
+        $quote_format = strtolower(trim($quote_format));
+        return in_array($quote_format, ['standard', 'insurance'], true) ? $quote_format : 'standard';
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function get_trade_context_map(): array
+    {
+        $terms = get_terms([
+            'taxonomy' => 'trade',
+            'hide_empty' => false,
+            'fields' => 'ids',
+        ]);
+
+        if (is_wp_error($terms) || !is_array($terms)) {
+            return [];
+        }
+
+        $contexts = [];
+        foreach ($terms as $term_id) {
+            $id = (int) $term_id;
+            if ($id <= 0) {
+                continue;
+            }
+
+            $context = (string) get_term_meta($id, '_tah_trade_context', true);
+            $contexts[(string) $id] = $this->normalize_trade_context($context);
+        }
+
+        return $contexts;
+    }
+
+    private function normalize_trade_context(string $context): string
+    {
+        $context = strtolower(trim($context));
+        if ($context === 'all') {
+            $context = 'both';
+        }
+
+        return in_array($context, ['standard', 'insurance', 'both'], true) ? $context : 'standard';
     }
 
     private function format_rate_formula(string $price_mode, float $modifier): string

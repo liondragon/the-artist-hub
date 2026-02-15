@@ -11,9 +11,11 @@ if (!defined('ABSPATH')) {
 final class TAH_Pricing_Trade_Presets
 {
     private const META_KEY = '_tah_trade_pricing_preset';
+    private const META_CONTEXT_KEY = '_tah_trade_context';
     private const NONCE_ACTION = 'tah_pricing_trade_presets_save';
     private const NONCE_NAME = '_tah_pricing_trade_presets_nonce';
     private const FIELD_NAME = 'tah_trade_pricing_preset_json';
+    private const FIELD_CONTEXT_NAME = 'tah_trade_context';
 
     public function __construct()
     {
@@ -36,6 +38,13 @@ final class TAH_Pricing_Trade_Presets
 
         echo '<div class="form-field term-pricing-preset-wrap">';
         wp_nonce_field(self::NONCE_ACTION, self::NONCE_NAME);
+        echo '<label for="' . esc_attr(self::FIELD_CONTEXT_NAME) . '">' . esc_html__('Trade Context', 'the-artist') . '</label>';
+        echo '<select id="' . esc_attr(self::FIELD_CONTEXT_NAME) . '" name="' . esc_attr(self::FIELD_CONTEXT_NAME) . '">';
+        echo '<option value="standard" selected>' . esc_html__('Standard Quotes', 'the-artist') . '</option>';
+        echo '<option value="insurance">' . esc_html__('Insurance Quotes', 'the-artist') . '</option>';
+        echo '<option value="both">' . esc_html__('Both Formats', 'the-artist') . '</option>';
+        echo '</select>';
+        echo '<p class="description">' . esc_html__('Controls where this trade appears in quote edit screens and pricing catalog filters.', 'the-artist') . '</p>';
         echo '<label for="' . esc_attr(self::FIELD_NAME) . '">' . esc_html__('Pricing Preset (Standard Quotes)', 'the-artist') . '</label>';
         echo '<p class="description">' . esc_html__('Configure default pricing groups/items as JSON. Applied to new standard-format quotes when this trade is selected.', 'the-artist') . '</p>';
         echo '<textarea id="' . esc_attr(self::FIELD_NAME) . '" name="' . esc_attr(self::FIELD_NAME) . '" class="large-text code" rows="14" spellcheck="false">' . esc_textarea($preset_json) . '</textarea>';
@@ -57,11 +66,21 @@ final class TAH_Pricing_Trade_Presets
         $preset_json = $saved_array !== null
             ? $this->format_preset_for_editor($saved_array)
             : $this->format_preset_for_editor(['groups' => []]);
+        $trade_context = $this->normalize_trade_context((string) get_term_meta((int) $term->term_id, self::META_CONTEXT_KEY, true));
 
         echo '<tr class="form-field term-pricing-preset-wrap">';
         echo '<th scope="row"><label for="' . esc_attr(self::FIELD_NAME) . '">' . esc_html__('Pricing Preset (Standard Quotes)', 'the-artist') . '</label></th>';
         echo '<td>';
         wp_nonce_field(self::NONCE_ACTION, self::NONCE_NAME);
+        echo '<p>';
+        echo '<label for="' . esc_attr(self::FIELD_CONTEXT_NAME) . '"><strong>' . esc_html__('Trade Context', 'the-artist') . '</strong></label><br>';
+        echo '<select id="' . esc_attr(self::FIELD_CONTEXT_NAME) . '" name="' . esc_attr(self::FIELD_CONTEXT_NAME) . '">';
+        echo '<option value="standard" ' . selected($trade_context, 'standard', false) . '>' . esc_html__('Standard Quotes', 'the-artist') . '</option>';
+        echo '<option value="insurance" ' . selected($trade_context, 'insurance', false) . '>' . esc_html__('Insurance Quotes', 'the-artist') . '</option>';
+        echo '<option value="both" ' . selected($trade_context, 'both', false) . '>' . esc_html__('Both Formats', 'the-artist') . '</option>';
+        echo '</select>';
+        echo '</p>';
+        echo '<p class="description" style="margin-bottom:10px;">' . esc_html__('Controls where this trade appears in quote edit screens and pricing catalog filters.', 'the-artist') . '</p>';
         echo '<p class="description" style="margin-bottom:10px;">' . esc_html__('Configure default pricing groups/items as JSON. Applied to new standard-format quotes when this trade is selected.', 'the-artist') . '</p>';
         echo '<textarea id="' . esc_attr(self::FIELD_NAME) . '" name="' . esc_attr(self::FIELD_NAME) . '" class="large-text code" rows="14" spellcheck="false">' . esc_textarea($preset_json) . '</textarea>';
         echo '<p class="description">' . esc_html__('Shape: {"groups":[{"name":"...","selection_mode":"all|multi|single","show_subtotal":true,"is_collapsed":false,"items":[{"pricing_item_sku":"sku","quantity":1}]}]}', 'the-artist') . '</p>';
@@ -86,6 +105,13 @@ final class TAH_Pricing_Trade_Presets
             )
         ) {
             return;
+        }
+
+        if (isset($_POST[self::FIELD_CONTEXT_NAME])) {
+            $trade_context = $this->normalize_trade_context(
+                sanitize_key(wp_unslash((string) $_POST[self::FIELD_CONTEXT_NAME]))
+            );
+            update_term_meta((int) $term_id, self::META_CONTEXT_KEY, $trade_context);
         }
 
         if (!isset($_POST[self::FIELD_NAME])) {
@@ -198,6 +224,18 @@ final class TAH_Pricing_Trade_Presets
         }
 
         return ['groups' => $groups];
+    }
+
+    private function normalize_trade_context(string $trade_context): string
+    {
+        $trade_context = strtolower(trim($trade_context));
+        if ($trade_context === 'all') {
+            $trade_context = 'both';
+        }
+
+        return in_array($trade_context, ['standard', 'insurance', 'both'], true)
+            ? $trade_context
+            : 'standard';
     }
 }
 

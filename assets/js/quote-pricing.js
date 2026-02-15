@@ -10,6 +10,7 @@
     var ajaxSearchAction = String(config.ajaxSearchAction || 'tah_search_pricing_items');
     var ajaxApplyPresetAction = String(config.ajaxApplyPresetAction || 'tah_apply_trade_pricing_preset');
     var ajaxNonce = String(config.ajaxNonce || '');
+    var tradeContexts = config.tradeContexts || {};
 
     var groupCounter = 1;
     var saveStatusTimer = null;
@@ -39,6 +40,61 @@
         var n = normalizeNumber(value, 0);
         var sign = n < 0 ? '-' : '';
         return sign + '$' + Math.abs(n).toFixed(2);
+    }
+
+    function normalizeQuoteFormat(value) {
+        var format = String(value || '').toLowerCase().trim();
+        if (format === 'insurance') {
+            return 'insurance';
+        }
+        return 'standard';
+    }
+
+    function getSelectedQuoteFormat() {
+        var $field = $('#tah-quote-format');
+        if ($field.length) {
+            return normalizeQuoteFormat($field.val());
+        }
+
+        var $editor = $('#tah-quote-pricing');
+        return normalizeQuoteFormat($editor.attr('data-quote-format'));
+    }
+
+    function normalizeTradeContext(value) {
+        var context = String(value || '').toLowerCase().trim();
+        if (context === 'all') {
+            context = 'both';
+        }
+        if (context === 'insurance') {
+            return 'insurance';
+        }
+        if (context === 'both') {
+            return 'both';
+        }
+        return 'standard';
+    }
+
+    function isTradeContextAllowed(format, context) {
+        if (context === 'both') {
+            return true;
+        }
+        return format === context;
+    }
+
+    function isInsuranceFormat(format) {
+        return normalizeQuoteFormat(format) === 'insurance';
+    }
+
+    function getQuoteTaxRate() {
+        var raw = String($('#tah-quote-tax-rate').val() || '').trim();
+        if (raw === '') {
+            return 0;
+        }
+        var rate = normalizeNumber(raw, 0);
+        if (rate < 0) {
+            return 0;
+        }
+        return rate;
     }
 
     function parseRateFormula(input) {
@@ -180,7 +236,7 @@
 
     function buildRowHtml(data) {
         var title = escHtml(data.title == null ? '' : data.title);
-        var description = escHtml(data.description || '');
+        var description = escHtml(data.description || data.note || '');
         var qty = normalizeNumber(data.quantity, 1);
         var pricingItemId = parseInt(String(data.pricingItemId || 0), 10) || 0;
         var unitType = escHtml(data.unitType || 'flat');
@@ -191,6 +247,15 @@
         var rateFormula = escHtml(rateFormulaRaw);
         var qtyFormula = escHtml(data.qtyFormula || compactNumber(qty));
         var badgeMeta = rateBadge(parseRateFormula(rateFormulaRaw).mode, pricingItemId);
+        var lineSku = escHtml(data.lineSku || '');
+        var materialCost = data.materialCost == null || data.materialCost === ''
+            ? ''
+            : escHtml(compactNumber(normalizeNumber(data.materialCost, 0)));
+        var laborCost = data.laborCost == null || data.laborCost === ''
+            ? ''
+            : escHtml(compactNumber(normalizeNumber(data.laborCost, 0)));
+        var taxRate = escHtml(data.taxRate == null ? '' : String(data.taxRate));
+        var note = escHtml(data.note || '');
 
         return '' +
             '<tr class="tah-line-item-row" data-item-id="0">' +
@@ -203,14 +268,13 @@
             '<input type="hidden" class="tah-line-item-type" value="' + itemType + '">' +
             '<input type="hidden" class="tah-line-unit-type" value="' + unitType + '">' +
             '<input type="hidden" class="tah-line-is-selected" value="1">' +
-            '<input type="hidden" class="tah-line-material-cost" value="">' +
-            '<input type="hidden" class="tah-line-labor-cost" value="">' +
-            '<input type="hidden" class="tah-line-line-sku" value="">' +
-            '<input type="hidden" class="tah-line-tax-rate" value="">' +
-            '<input type="hidden" class="tah-line-note" value="">' +
+            '<input type="hidden" class="tah-line-note" value="' + note + '">' +
             '<input type="hidden" class="tah-line-previous-resolved-price" value="">' +
             '</td>' +
-            '<td class="tah-cell-description"><input type="text" class="tah-form-control tah-line-description" value="' + description + '" placeholder="Description"></td>' +
+            '<td class="tah-cell-sku tah-cell-insurance"><input type="text" class="tah-form-control tah-line-line-sku" value="' + lineSku + '" placeholder="SKU"></td>' +
+            '<td class="tah-cell-description"><button type="button" class="button-link tah-line-note-toggle tah-cell-insurance" aria-label="Toggle F9 note" title="Toggle F9 note">F9</button><input type="text" class="tah-form-control tah-line-description" value="' + description + '" placeholder="Description"></td>' +
+            '<td class="tah-cell-material tah-cell-insurance"><input type="number" step="0.01" class="tah-form-control tah-line-material-cost" value="' + materialCost + '" placeholder="0.00"></td>' +
+            '<td class="tah-cell-labor tah-cell-insurance"><input type="number" step="0.01" class="tah-form-control tah-line-labor-cost" value="' + laborCost + '" placeholder="0.00"></td>' +
             '<td class="tah-cell-qty"><input type="text" class="tah-form-control tah-line-qty" value="' + compactNumber(qty) + '" data-formula="' + qtyFormula + '" data-resolved="' + compactNumber(qty) + '"></td>' +
             '<td class="tah-cell-rate">' +
             '<div class="tah-rate-field">' +
@@ -219,6 +283,7 @@
             '<input type="hidden" class="tah-line-catalog-price" value="' + escHtml(compactNumber(catalogPrice)) + '">' +
             '</div>' +
             '</td>' +
+            '<td class="tah-cell-tax tah-cell-insurance"><input type="number" step="0.0001" min="0" class="tah-form-control tah-line-tax-rate" value="' + taxRate + '" placeholder="Quote default"><span class="tah-line-tax-amount">$0.00</span></td>' +
             '<td class="tah-cell-amount"><span class="tah-line-amount" data-amount="' + compactNumber(qty * rateResolved) + '">' + escHtml(formatCurrency(qty * rateResolved)) + '</span></td>' +
             '<td class="tah-cell-margin"><span class="tah-line-margin">--</span></td>' +
             '<td class="tah-cell-actions"><button type="button" class="tah-icon-button tah-icon-button--danger tah-delete-line" aria-label="Delete line item" title="Delete line item"><span class="dashicons dashicons-trash" aria-hidden="true"></span></button></td>' +
@@ -254,7 +319,12 @@
                     pricingItemId: item.pricingItemId || 0,
                     unitType: item.unitType || 'flat',
                     catalogPrice: item.catalogPrice || 0,
-                    itemType: item.itemType || 'standard'
+                    itemType: item.itemType || 'standard',
+                    lineSku: item.lineSku || '',
+                    materialCost: item.materialCost,
+                    laborCost: item.laborCost,
+                    taxRate: item.taxRate,
+                    note: item.note || ''
                 });
             }).join('');
         }
@@ -285,7 +355,7 @@
             '</header>' +
             '<div class="tah-group-table-wrap">' +
             '<table class="tah-pricing-table-editor">' +
-            '<thead><tr><th class="tah-col-handle"></th><th class="tah-col-index">#</th><th class="tah-col-item">Item</th><th class="tah-col-description">Description</th><th class="tah-col-qty">Qty</th><th class="tah-col-rate">Rate</th><th class="tah-col-amount">Amount</th><th class="tah-col-margin">Margin</th><th class="tah-col-actions"></th></tr></thead>' +
+            '<thead><tr><th class="tah-col-handle"></th><th class="tah-col-index">#</th><th class="tah-col-item">Item</th><th class="tah-col-sku tah-col-insurance">SKU</th><th class="tah-col-description" data-standard-label="Description" data-insurance-label="F9 Note">Description</th><th class="tah-col-material tah-col-insurance">Material</th><th class="tah-col-labor tah-col-insurance">Labor</th><th class="tah-col-qty">Qty</th><th class="tah-col-rate" data-standard-label="Rate" data-insurance-label="Unit Price">Rate</th><th class="tah-col-tax tah-col-insurance">Tax</th><th class="tah-col-amount">Amount</th><th class="tah-col-margin">Margin</th><th class="tah-col-actions"></th></tr></thead>' +
             '<tbody class="tah-line-items-body">' + rowsHtml + '</tbody>' +
             '</table>' +
             '<div class="tah-group-footer">' +
@@ -329,6 +399,117 @@
         }
 
         setSaveStatus('success', message);
+    }
+
+    function ensureSingleInsuranceGroup() {
+        var $groups = $('#tah-pricing-groups .tah-group-card');
+        if ($groups.length <= 1) {
+            return;
+        }
+
+        var $primary = $groups.first();
+        var $primaryBody = $primary.find('.tah-line-items-body').first();
+
+        $groups.slice(1).each(function () {
+            var $group = $(this);
+            $group.find('.tah-line-item-row').appendTo($primaryBody);
+            $group.remove();
+        });
+
+        if (!$primaryBody.find('.tah-line-item-row').length) {
+            $primaryBody.append(buildRowHtml({
+                title: '',
+                quantity: 1,
+                resolvedPrice: 0,
+                rateFormula: '0',
+                qtyFormula: '1'
+            }));
+        }
+
+        $primary.find('.tah-group-name').val(labels.insuranceGroupName || 'Insurance Items');
+        $primary.find('.tah-group-show-subtotal').prop('checked', false);
+        initLineSortable($primary);
+        initAutocomplete($primary);
+    }
+
+    function applyTradeContextFilter(format) {
+        var normalizedFormat = normalizeQuoteFormat(format);
+        var hadActiveSelection = false;
+        var activeSelectionStillVisible = false;
+
+        $('#tah_trade_single_select input[name="tah_trade_term_id"]').each(function () {
+            var $input = $(this);
+            var tradeId = parseInt(String($input.val() || '0'), 10) || 0;
+            var $row = $input.closest('p');
+            if (!$row.length) {
+                $row = $input.closest('label');
+            }
+
+            if (tradeId === 0) {
+                $input.prop('disabled', false);
+                $row.show();
+                if ($input.is(':checked')) {
+                    hadActiveSelection = true;
+                    activeSelectionStillVisible = true;
+                }
+                return;
+            }
+
+            var context = normalizeTradeContext(tradeContexts[String(tradeId)]);
+            var isAllowed = isTradeContextAllowed(normalizedFormat, context);
+
+            $input.prop('disabled', !isAllowed);
+            $row.toggle(isAllowed);
+
+            if ($input.is(':checked')) {
+                hadActiveSelection = true;
+                if (isAllowed) {
+                    activeSelectionStillVisible = true;
+                } else {
+                    $input.prop('checked', false);
+                }
+            }
+        });
+
+        if (hadActiveSelection && !activeSelectionStillVisible) {
+            $('#tah_trade_single_select input[name="tah_trade_term_id"][value="0"]').prop('checked', true).trigger('change');
+        }
+    }
+
+    function updateTableHeaderLabels(format) {
+        var normalizedFormat = normalizeQuoteFormat(format);
+        var useInsurance = normalizedFormat === 'insurance';
+
+        $('#tah-pricing-groups .tah-pricing-table-editor th[data-standard-label]').each(function () {
+            var $th = $(this);
+            var next = useInsurance ? $th.attr('data-insurance-label') : $th.attr('data-standard-label');
+            if (next) {
+                $th.text(next);
+            }
+        });
+    }
+
+    function applyQuoteFormatUi(format) {
+        var normalizedFormat = normalizeQuoteFormat(format);
+        var isInsurance = normalizedFormat === 'insurance';
+        var $editor = $('#tah-quote-pricing');
+
+        $editor.attr('data-quote-format', normalizedFormat);
+        $editor.toggleClass('is-quote-format-insurance', isInsurance);
+        $editor.find('.tah-insurance-tax-rate-field').toggle(isInsurance);
+        $editor.find('.tah-pricing-insurance-hint').toggle(isInsurance);
+
+        if (isInsurance) {
+            ensureSingleInsuranceGroup();
+        }
+
+        $editor.find('.tah-line-item-row').each(function () {
+            prepareRowForCurrentFormat($(this), isInsurance);
+        });
+
+        updateTableHeaderLabels(normalizedFormat);
+        applyTradeContextFilter(normalizedFormat);
+        refreshTotals();
     }
 
     function applyPresetToEditor(groups) {
@@ -397,7 +578,8 @@
                 action: ajaxApplyPresetAction,
                 nonce: ajaxNonce,
                 quote_id: quoteId,
-                trade_id: tradeId
+                trade_id: tradeId,
+                tah_quote_format: getSelectedQuoteFormat()
             }
         }).done(function (response) {
             if (!response || response.success !== true || !response.data) {
@@ -442,6 +624,37 @@
     }
 
     function refreshRateRow($row) {
+        if (isInsuranceFormat(getSelectedQuoteFormat())) {
+            var materialCost = normalizeNumber($row.find('.tah-line-material-cost').val(), 0);
+            var laborCost = normalizeNumber($row.find('.tah-line-labor-cost').val(), 0);
+            if (materialCost < 0) {
+                materialCost = 0;
+            }
+            if (laborCost < 0) {
+                laborCost = 0;
+            }
+
+            var unitPrice = Number((materialCost + laborCost).toFixed(2));
+            var $insuranceRateInput = $row.find('.tah-line-rate');
+            var taxRateRaw = String($row.find('.tah-line-tax-rate').val() || '').trim();
+            var taxRate = taxRateRaw === '' ? getQuoteTaxRate() : normalizeNumber(taxRateRaw, 0);
+            if (taxRate < 0) {
+                taxRate = 0;
+            }
+
+            $insuranceRateInput.attr('data-formula', compactNumber(unitPrice));
+            $insuranceRateInput.attr('data-resolved', compactNumber(unitPrice));
+            $insuranceRateInput.val(formatCurrency(unitPrice));
+
+            return {
+                parsed: { mode: 'override', modifier: unitPrice },
+                resolved: unitPrice,
+                materialCost: materialCost,
+                laborCost: laborCost,
+                taxRate: taxRate
+            };
+        }
+
         var $rateInput = $row.find('.tah-line-rate');
         var $badge = $row.find('.tah-line-rate-badge');
         var basePrice = normalizeNumber($row.find('.tah-line-catalog-price').val(), 0);
@@ -502,7 +715,9 @@
 
     function refreshGroup($group) {
         var subtotal = 0;
+        var taxTotal = 0;
         var showSubtotal = $group.find('.tah-group-show-subtotal').is(':checked');
+        var useInsuranceTotals = isInsuranceFormat(getSelectedQuoteFormat());
 
         $group.find('.tah-line-item-row').each(function (idx) {
             var $row = $(this);
@@ -510,28 +725,82 @@
 
             var qty = refreshQtyRow($row);
             var rateMeta = refreshRateRow($row);
-            var amount = Number((qty * rateMeta.resolved).toFixed(2));
+            var baseAmount = Number((qty * rateMeta.resolved).toFixed(2));
+            var lineTax = 0;
+            var amount = baseAmount;
+
+            if (useInsuranceTotals) {
+                lineTax = Number((qty * normalizeNumber(rateMeta.materialCost, 0) * normalizeNumber(rateMeta.taxRate, 0)).toFixed(2));
+                taxTotal += lineTax;
+                amount = Number((baseAmount + lineTax).toFixed(2));
+                $row.find('.tah-line-note').val(String($row.find('.tah-line-description').val() || '').trim());
+                $row.find('.tah-line-tax-amount').text(formatCurrency(lineTax));
+            }
 
             $row.find('.tah-line-amount').attr('data-amount', compactNumber(amount)).text(formatCurrency(amount));
-            refreshMargin($row, rateMeta.resolved);
+            if (useInsuranceTotals) {
+                $row.find('.tah-line-margin').text('--');
+            } else {
+                refreshMargin($row, rateMeta.resolved);
+            }
 
-            subtotal += amount;
+            subtotal += baseAmount;
         });
 
         subtotal = Number(subtotal.toFixed(2));
         $group.find('.tah-group-subtotal-value').text(formatCurrency(subtotal));
         $group.find('.tah-group-subtotal-row').toggle(showSubtotal);
-        return subtotal;
+        taxTotal = Number(taxTotal.toFixed(2));
+
+        return {
+            subtotal: subtotal,
+            taxTotal: taxTotal,
+            grandTotal: Number((subtotal + taxTotal).toFixed(2))
+        };
     }
 
     function refreshTotals() {
+        var subtotal = 0;
+        var taxTotal = 0;
         var grandTotal = 0;
+        var useInsuranceTotals = isInsuranceFormat(getSelectedQuoteFormat());
 
         $('#tah-pricing-groups .tah-group-card').each(function () {
-            grandTotal += refreshGroup($(this));
+            var groupTotals = refreshGroup($(this));
+            subtotal += normalizeNumber(groupTotals.subtotal, 0);
+            taxTotal += normalizeNumber(groupTotals.taxTotal, 0);
+            grandTotal += normalizeNumber(groupTotals.grandTotal, 0);
         });
 
+        subtotal = Number(subtotal.toFixed(2));
+        taxTotal = Number(taxTotal.toFixed(2));
+        grandTotal = Number(grandTotal.toFixed(2));
+
+        $('#tah-pricing-subtotal-value').text(formatCurrency(subtotal));
+        $('#tah-pricing-tax-total-value').text(formatCurrency(taxTotal));
+        $('#tah-pricing-subtotal-row').toggle(useInsuranceTotals);
+        $('#tah-pricing-tax-total-row').toggle(useInsuranceTotals);
         $('#tah-pricing-grand-total-value').text(formatCurrency(Number(grandTotal.toFixed(2))));
+    }
+
+    function prepareRowForCurrentFormat($row, insuranceMode) {
+        if (!$row || !$row.length) {
+            return;
+        }
+
+        var isInsurance = insuranceMode === undefined
+            ? isInsuranceFormat(getSelectedQuoteFormat())
+            : !!insuranceMode;
+        $row.find('.tah-line-rate').prop('readonly', isInsurance);
+
+        if (isInsurance) {
+            var $descriptionCell = $row.find('.tah-cell-description');
+            var hasNote = String($descriptionCell.find('.tah-line-description').val() || '').trim() !== '';
+            $descriptionCell.toggleClass('is-note-collapsed', !hasNote);
+            return;
+        }
+
+        $row.find('.tah-cell-description').removeClass('is-note-collapsed');
     }
 
     function initGroupSortable() {
@@ -589,6 +858,7 @@
             return null;
         }
 
+        prepareRowForCurrentFormat($newRow);
         refreshTotals();
         return $newRow;
     }
@@ -615,6 +885,7 @@
 
     function serializeItems() {
         var out = [];
+        var useInsurance = isInsuranceFormat(getSelectedQuoteFormat());
 
         $('#tah-pricing-groups .tah-group-card').each(function () {
             var $group = $(this);
@@ -630,13 +901,19 @@
                     return;
                 }
 
+                var descriptionValue = String($row.find('.tah-line-description').val() || '').trim();
+                var noteValue = useInsurance
+                    ? descriptionValue
+                    : String($row.find('.tah-line-note').val() || '');
+                $row.find('.tah-line-note').val(noteValue);
+
                 out.push({
                     id: parseInt(String($row.find('.tah-line-id').val() || '0'), 10) || 0,
                     group_key: groupKey,
                     pricing_item_id: parseInt(String($row.find('.tah-line-pricing-item-id').val() || '0'), 10) || 0,
                     item_type: String($row.find('.tah-line-item-type').val() || 'standard'),
                     title: title,
-                    description: String($row.find('.tah-line-description').val() || '').trim(),
+                    description: descriptionValue,
                     quantity: Number(qty.toFixed(2)),
                     qty_formula: String($row.find('.tah-line-qty').attr('data-formula') || ''),
                     unit_type: String($row.find('.tah-line-unit-type').val() || 'flat'),
@@ -648,7 +925,7 @@
                     labor_cost: String($row.find('.tah-line-labor-cost').val() || '').trim(),
                     line_sku: String($row.find('.tah-line-line-sku').val() || '').trim(),
                     tax_rate: String($row.find('.tah-line-tax-rate').val() || '').trim(),
-                    note: String($row.find('.tah-line-note').val() || ''),
+                    note: noteValue,
                     previous_resolved_price: String($row.find('.tah-line-previous-resolved-price').val() || '').trim()
                 });
             });
@@ -729,6 +1006,8 @@
                 action: ajaxAction,
                 nonce: ajaxNonce,
                 quote_id: quoteId,
+                tah_quote_format: getSelectedQuoteFormat(),
+                tah_quote_tax_rate: String($('#tah-quote-tax-rate').val() || '').trim(),
                 groups_json: JSON.stringify(payload.groups),
                 items_json: JSON.stringify(payload.items)
             }
@@ -768,6 +1047,7 @@
     }
 
     function applyCatalogSuggestion($row, item) {
+        var insuranceMode = isInsuranceFormat(getSelectedQuoteFormat());
         var title = String(item.title || item.label || item.value || item.sku || '').trim();
         if (title) {
             $row.find('.tah-line-title').val(title);
@@ -780,10 +1060,17 @@
 
         var unitPrice = normalizeCatalogPrice(item.unit_price);
         var $rateInput = $row.find('.tah-line-rate');
-        $rateInput.attr('data-formula', '$');
+        $rateInput.attr('data-formula', insuranceMode ? compactNumber(unitPrice) : '$');
         $rateInput.attr('data-resolved', compactNumber(unitPrice));
         $rateInput.val(formatCurrency(unitPrice));
         $row.find('.tah-line-catalog-price').val(compactNumber(unitPrice));
+
+        if (insuranceMode) {
+            $row.find('.tah-line-line-sku').val(String(item.sku || ''));
+            $row.find('.tah-line-material-cost').val(compactNumber(unitPrice));
+            $row.find('.tah-line-labor-cost').val('0');
+            $row.find('.tah-line-tax-rate').val(String($row.find('.tah-line-tax-rate').val() || '').trim());
+        }
 
         refreshTotals();
     }
@@ -803,6 +1090,7 @@
                 action: ajaxSearchAction,
                 nonce: ajaxNonce,
                 quote_id: quoteId,
+                tah_quote_format: getSelectedQuoteFormat(),
                 term: term
             }
         }).done(function (response) {
@@ -883,6 +1171,7 @@
         initLineSortable($('#tah-quote-pricing'));
         initAutocomplete($('#tah-quote-pricing'));
 
+        applyQuoteFormatUi(getSelectedQuoteFormat());
         refreshTotals();
 
         $(document).on('focus', '.tah-line-qty', function () {
@@ -896,6 +1185,9 @@
         });
 
         $(document).on('focus', '.tah-line-rate', function () {
+            if (isInsuranceFormat(getSelectedQuoteFormat())) {
+                return;
+            }
             var $input = $(this);
             $input.val(String($input.attr('data-formula') || '$'));
             $input.select();
@@ -905,8 +1197,21 @@
             refreshTotals();
         });
 
-        $(document).on('change input', '.tah-group-show-subtotal, .tah-group-collapsed, .tah-group-selection-mode, .tah-line-title, .tah-line-description', function () {
+        $(document).on('change input', '.tah-group-show-subtotal, .tah-group-collapsed, .tah-group-selection-mode, .tah-line-title, .tah-line-description, .tah-line-line-sku, .tah-line-material-cost, .tah-line-labor-cost, .tah-line-tax-rate, #tah-quote-tax-rate', function () {
             refreshTotals();
+        });
+
+        $(document).on('click', '.tah-line-note-toggle', function (event) {
+            if (!isInsuranceFormat(getSelectedQuoteFormat())) {
+                return;
+            }
+
+            event.preventDefault();
+            var $cell = $(this).closest('.tah-cell-description');
+            $cell.toggleClass('is-note-collapsed');
+            if (!$cell.hasClass('is-note-collapsed')) {
+                $cell.find('.tah-line-description').trigger('focus');
+            }
         });
 
         $(document).on('click', '.tah-add-line-item', function (event) {
@@ -923,6 +1228,7 @@
             $tbody.append($row);
             initLineSortable($group);
             initAutocomplete($group);
+            prepareRowForCurrentFormat($row);
             refreshTotals();
             $row.find('.tah-line-title').trigger('focus');
         });
@@ -940,6 +1246,7 @@
                     rateFormula: '0',
                     qtyFormula: '1'
                 }));
+                prepareRowForCurrentFormat($group.find('.tah-line-item-row').last());
                 initLineSortable($group);
             }
 
@@ -1021,7 +1328,15 @@
             }
         });
 
+        $(document).on('change', '#tah-quote-format', function () {
+            applyQuoteFormatUi($(this).val());
+        });
+
         $(document).on('change', 'input[name="tah_trade_term_id"]', function () {
+            if (getSelectedQuoteFormat() !== 'standard') {
+                return;
+            }
+
             var tradeId = parseInt(String($(this).val() || '0'), 10) || 0;
             if (tradeId <= 0) {
                 return;

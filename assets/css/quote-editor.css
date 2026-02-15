@@ -122,6 +122,37 @@ body.tah-quote-editor-enabled .wrap h1.wp-heading-inline {
     padding: 14px;
 }
 
+#tah-quote-editor .tah-pricing-format-controls {
+    align-items: end;
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    margin-bottom: 10px;
+}
+
+#tah-quote-editor .tah-pricing-format-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+#tah-quote-editor .tah-pricing-format-label {
+    color: #344054;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+#tah-quote-editor .tah-insurance-tax-rate-field,
+#tah-quote-editor .tah-pricing-insurance-hint {
+    display: none;
+}
+
+#tah-quote-editor .tah-pricing-insurance-hint {
+    margin: 0 0 10px;
+}
+
 #tah-quote-editor .tah-pricing-groups {
     display: flex;
     flex-direction: column;
@@ -185,7 +216,7 @@ body.tah-quote-editor-enabled .wrap h1.wp-heading-inline {
 
 #tah-quote-editor .tah-pricing-table-editor {
     border-collapse: collapse;
-    min-width: 860px;
+    min-width: 1080px;
     table-layout: fixed;
     width: 100%;
 }
@@ -220,14 +251,28 @@ body.tah-quote-editor-enabled .wrap h1.wp-heading-inline {
     width: 170px;
 }
 
+#tah-quote-editor .tah-col-sku,
+#tah-quote-editor .tah-cell-sku {
+    width: 120px;
+}
+
 #tah-quote-editor .tah-col-description,
 #tah-quote-editor .tah-cell-description {
-    width: 240px;
+    width: 220px;
+}
+
+#tah-quote-editor .tah-col-material,
+#tah-quote-editor .tah-cell-material,
+#tah-quote-editor .tah-col-labor,
+#tah-quote-editor .tah-cell-labor,
+#tah-quote-editor .tah-col-tax,
+#tah-quote-editor .tah-cell-tax {
+    width: 120px;
 }
 
 #tah-quote-editor .tah-col-qty,
 #tah-quote-editor .tah-cell-qty {
-    width: 110px;
+    width: 90px;
 }
 
 #tah-quote-editor .tah-col-rate,
@@ -312,6 +357,24 @@ body.tah-quote-editor-enabled .wrap h1.wp-heading-inline {
     margin-top: 12px;
 }
 
+#tah-quote-editor .tah-pricing-summary-row {
+    align-items: center;
+    display: none;
+    gap: 8px;
+}
+
+#tah-quote-editor .tah-pricing-summary-label {
+    color: #475467;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+#tah-quote-editor .tah-pricing-summary-value {
+    color: #0f172a;
+    font-size: 14px;
+}
+
 #tah-quote-editor .tah-pricing-save-status {
     color: #475467;
     font-size: 12px;
@@ -350,6 +413,66 @@ body.tah-quote-editor-enabled .wrap h1.wp-heading-inline {
 }
 
 #tah-quote-editor .tah-group-card.is-collapsed .tah-group-table-wrap {
+    display: none;
+}
+
+#tah-quote-editor #tah-quote-pricing.is-quote-format-insurance #tah-add-group,
+#tah-quote-editor #tah-quote-pricing.is-quote-format-insurance .tah-group-actions .tah-delete-group,
+#tah-quote-editor #tah-quote-pricing.is-quote-format-insurance .tah-group-handle,
+#tah-quote-editor #tah-quote-pricing.is-quote-format-insurance .tah-group-settings,
+#tah-quote-editor #tah-quote-pricing.is-quote-format-insurance .tah-group-subtotal-row {
+    display: none;
+}
+
+#tah-quote-editor #tah-quote-pricing.is-quote-format-insurance .tah-group-name {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    cursor: default;
+    font-size: 14px;
+    font-weight: 700;
+    padding-left: 0;
+    pointer-events: none;
+}
+
+#tah-quote-editor #tah-quote-pricing.is-quote-format-insurance .tah-col-margin,
+#tah-quote-editor #tah-quote-pricing.is-quote-format-insurance .tah-cell-margin,
+#tah-quote-editor #tah-quote-pricing.is-quote-format-insurance .tah-line-rate-badge {
+    display: none;
+}
+
+#tah-quote-editor #tah-quote-pricing.is-quote-format-insurance .tah-rate-field {
+    display: block;
+}
+
+#tah-quote-editor #tah-quote-pricing.is-quote-format-insurance .tah-line-rate {
+    font-weight: 600;
+}
+
+#tah-quote-editor #tah-quote-pricing.is-quote-format-insurance .tah-cell-tax .tah-line-tax-amount {
+    color: #475467;
+    display: block;
+    font-size: 11px;
+    margin-top: 2px;
+}
+
+#tah-quote-editor #tah-quote-pricing:not(.is-quote-format-insurance) .tah-col-insurance,
+#tah-quote-editor #tah-quote-pricing:not(.is-quote-format-insurance) .tah-cell-insurance {
+    display: none;
+}
+
+#tah-quote-editor .tah-line-note-toggle {
+    display: none;
+    font-weight: 600;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+#tah-quote-editor #tah-quote-pricing.is-quote-format-insurance .tah-line-note-toggle {
+    display: inline-block;
+}
+
+#tah-quote-editor #tah-quote-pricing.is-quote-format-insurance .tah-cell-description.is-note-collapsed .tah-line-description {
     display: none;
 }
 
@@ -405,5 +528,9 @@ body.tah-quote-editor-enabled .wrap h1.wp-heading-inline {
         align-items: flex-start;
         flex-direction: column;
         gap: 10px;
+    }
+
+    #tah-quote-editor .tah-pricing-format-controls {
+        grid-template-columns: 1fr;
     }
 }

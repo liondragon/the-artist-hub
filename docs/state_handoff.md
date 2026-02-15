@@ -150,3 +150,58 @@
   - Remove background fills.
   - Hide details summaries while keeping details content visible.
   - Keep excluded rows fully legible in print.
+
+## Quote Format Selector + Trade Context Filtering (Phase 6 Task 1) (2026-02-15)
+
+- `TAH_Quote_Pricing_Metabox` now renders a format selector at the top of the pricing metabox (`tah_quote_format`) plus an insurance tax-rate input (`tah_quote_tax_rate`).
+- Save behavior now persists format/tax meta on both save paths:
+  - Standard WP save (`save_post_quotes`) via `persist_quote_format_meta_from_request()`
+  - AJAX draft save (`wp_ajax_tah_save_pricing`) via the same helper
+- Auto-suggest and preset-apply endpoints now read requested format from the active request when present (fallback to persisted `_tah_quote_format`), so unsaved format toggles still query the correct catalog partition.
+- `quote-pricing.js` now applies a format mode on load/change:
+  - Standard mode: existing grouped UI behavior
+  - Insurance mode: flattens to one implicit group client-side, hides group-management controls, shows tax-rate field/hint
+- Trade selector filtering is now client-side and format-aware:
+  - Uses localized `tradeContexts` map (`_tah_trade_context` term meta)
+  - Shows only `standard`/`both` trades for standard format
+  - Shows only `insurance`/`both` trades for insurance format
+  - If currently selected trade becomes invalid after a format switch, selection falls back to `None`
+- Trade preset auto-apply remains standard-only in JS and server responses; insurance mode no-ops by design.
+
+## Trade Context Field On Trade Taxonomy (Phase 6 Task 2) (2026-02-15)
+
+- `TAH_Pricing_Trade_Presets` now owns trade context meta alongside pricing preset meta.
+- Trade add/edit forms now render a `Trade Context` dropdown (`tah_trade_context`) with values:
+  - `standard` (default)
+  - `insurance`
+  - `both`
+- Save flow now persists `_tah_trade_context` whenever the field is posted and normalizes legacy `all` to `both`.
+- Preset JSON save behavior remains unchanged (same nonce/cap checks, same normalization); context save is independent so context updates are not blocked by preset JSON changes.
+
+## Insurance Metabox Variant (Phase 6 Task 3) (2026-02-15)
+
+- Important behavioral decision: in insurance mode, **F9 note is the same field as line `description`** (no separate note input). The F9 button only toggles visibility of that description input.
+- `TAH_Quote_Pricing_Metabox` now supports insurance-mode table columns in both server-rendered and JS-added rows:
+  - SKU
+  - Material
+  - Labor
+  - Unit Price (computed)
+  - Tax
+  - F9 note via existing description field (with F9 toggle button)
+- Insurance persistence semantics in `persist_pricing_payload()`:
+  - Forces one implicit group (`Insurance Items`) regardless of incoming grouped payload.
+  - Computes `resolved_price` as `material_cost + labor_cost`.
+  - Forces `price_mode = override` and `price_modifier = resolved_price`.
+  - Stores `note` from the same description value (per request to reuse description for F9).
+- Insurance totals in `quote-pricing.js` now include three levels:
+  - Subtotal: sum of `qty * unit_price`
+  - Tax Total: sum of `qty * material_cost * tax_rate`
+  - Grand Total: subtotal + tax total
+- Tax behavior is intentionally material-only:
+  - Line tax uses `material_cost` only (labor excluded).
+  - Per-line `tax_rate` overrides quote-level rate; blank line tax rate falls back to quote-level `tah_quote_tax_rate`.
+- Insurance mode UI constraints:
+  - Group management controls remain hidden.
+  - Margin column and rate badge hidden.
+  - Line `Rate` input becomes read-only and displays computed unit price.
+  - Trade preset apply remains standard-only.
