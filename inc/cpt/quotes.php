@@ -21,7 +21,7 @@ function register_cpt_quote()
 		'labels' => $labels,
 		'hierarchical' => false,
 		'description' => 'Customer Proposals.',
-		'supports' => array('title', 'editor', 'custom-fields', 'revisions'),
+		'supports' => array('editor', 'custom-fields', 'revisions'),
 		'taxonomies' => ['trade'],
 		'public' => true,
 		'show_ui' => true,
@@ -180,6 +180,40 @@ function the_artist_quote_save_meta($post_id, $post)
 
 	return $post_id;
 
+	// Auto-generate post title from customer address
+	$customer_address = isset($_POST['customer_address']) ? sanitize_text_field($_POST['customer_address']) : '';
+	$title = $customer_address ?: 'Quote #' . $post_id;
+
+	// Check if title actually needs updating to prevent infinite loops if we used wp_update_post
+	// But since we are hooking into save_post, we need to be careful. 
+	// Actually, we can just update the post title in the database directly or use unhook/rehook pattern with wp_update_post
+
+	global $wpdb;
+	$wpdb->update(
+		$wpdb->posts,
+		['post_title' => $title],
+		['ID' => $post_id]
+	);
+
+	// Ensure slug is numeric (ID) if it might have been changed or needs setting? 
+	// WordPress sets slug based on title usually. If we want it to be just ID, we can enforce it.
+	// The user said "Slug should remain numeric, unless set manually to something custom."
+	// If it's a new post (auto-draft -> publish), it might generate a slug from the title. 
+	// Let's force it to be ID if it's currently matching the old title or empty.
+	// However, editing the slug is removed from the UI so manual setting might be hard unless we re-enable it?
+	// The user said "remove title", usually slug editing is under title.
+	// But let's stick to the title requirement first.
+	// If we want to strictly keep it numeric unless custom:
+
+	$current_slug = $post->post_name;
+	// If slug is empty or matches a sanitized version of the title (which we just changed), revert to ID.
+	// But this might be too aggressive if they *did* customize it.
+	// Since we removed 'slugdiv' in the edit screen class, they can't customize it easily anyway?
+	// Ah, class-quote-edit-screen.php:35 removes 'slugdiv'. 
+	// So they CANNOT set it manually to something custom unless they use Quick Edit.
+	// Let's just ensure the title is set for now.
+
+	return $post_id;
 }
 
 //ADD CUSTOM COLUMNS

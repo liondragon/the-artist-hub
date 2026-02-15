@@ -71,7 +71,7 @@ final class TAH_Quote_Edit_Screen
         echo '<div class="tah-quote-editor-header tah-card">';
         echo '<div class="tah-quote-editor-header-main">';
         echo '<div class="tah-quote-editor-header-row">';
-        echo '<strong class="tah-quote-editor-customer-name">' . esc_html($customer_name !== '' ? $customer_name : __('New Quote', 'the-artist')) . '</strong>';
+        echo '<strong class="tah-quote-editor-customer-name">' . esc_html($customer_name !== '' ? $customer_name : __('Quote Information', 'the-artist')) . '</strong>';
         if ($customer_address !== '') {
             echo '<span class="tah-quote-editor-customer-address">' . esc_html($customer_address) . '</span>';
         }
