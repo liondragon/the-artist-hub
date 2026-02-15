@@ -56,6 +56,26 @@ Each module must provide:
 
 ---
 
+## Naming Conventions
+
+### Post Meta
+- All post meta keys use `_tah_` prefix with underscored names
+- Pattern: `_tah_{feature}_{field}` (e.g., `_tah_quote_format`, `_tah_prices_resolved_at`)
+- Info sections use sub-pattern: `_tah_qs_{section_key}_{suffix}`
+
+### Term Meta
+- Trade term meta uses `_tah_trade_` prefix (e.g., `_tah_trade_default_sections`, `_tah_trade_context`, `_tah_trade_pricing_preset`)
+- Term meta is the standard extensibility mechanism for adding module-specific data to trades
+
+### WP Options
+- Theme options use `tah_` prefix (e.g., `tah_pricing_db_version`, `tah_price_rounding`)
+
+### CSS Classes
+- All custom CSS classes use `tah-` prefix (e.g., `tah-group-card`, `tah-drag-handle`, `tah-icon-button`)
+- Zero reliance on WP admin CSS classes for styling — only for structure/hooks
+
+---
+
 ## Custom Post Types & Taxonomies
 
 ### Registration
@@ -72,11 +92,47 @@ CPT definitions live in `inc/cpt/`:
 ### Taxonomy: `trade`
 - Registered in `quotes.php` for the `quotes` CPT
 - Represents a type of trade (e.g., "Hardwood Floors", "Tile")
-- Each Trade term can store an **Info Sections Recipe** (ordered preset list) in term meta
+- Trade terms use **term meta** as a general extensibility pattern:
+
+| Term Meta Key | Module | Purpose |
+|---|---|---|
+| `_tah_trade_default_sections` | Info Sections | Ordered preset list of section keys |
+| `_tah_trade_context` | Pricing | `standard`, `insurance`, or `all` — controls trade visibility per quote format |
+| `_tah_trade_pricing_preset` | Pricing | JSON preset of default groups and line items |
 
 ### Loading Order
 - CPTs are loaded via `inc/custom_post_types.php` (from `functions.php`)
 - `template-parts.php` is additionally loaded by the Info Sections module bootstrap
+
+---
+
+## Custom Database Tables
+
+### When to Use
+Use custom tables (not post meta) when data is:
+- Relational (parent-child: quote → groups → line items)
+- Queried in aggregate (catalog search, price recalculation across all quotes)
+- Expected to migrate to another framework (Laravel, Next.js)
+
+### Schema Migration Pattern
+- Migration files live in `inc/migrations/`
+- Each module tracks its schema version via a WP option: `tah_{module}_db_version`
+- On `admin_init` (or module boot), compare stored version against current. If outdated, run `dbDelta()`:
+
+```php
+$installed_version = get_option('tah_pricing_db_version', '0');
+if (version_compare($installed_version, TAH_PRICING_DB_VERSION, '<')) {
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    require_once get_template_directory() . '/inc/migrations/pricing-tables.php';
+    tah_pricing_create_tables();
+    update_option('tah_pricing_db_version', TAH_PRICING_DB_VERSION);
+}
+```
+
+### `$wpdb` Conventions
+- Always use `$wpdb->prefix . 'tah_*'` — never hardcode `wp_tah_*`
+- Use `$wpdb->prepare()` for all queries with user input
+- Wrap multi-table operations in `$wpdb->query('START TRANSACTION')` / `COMMIT`
 
 ---
 
@@ -154,11 +210,24 @@ The Info Sections system is a metabox-driven content system for Quotes:
 | File | Scope | Loaded via |
 |------|-------|-----------|
 | `assets/css/variables.css` | CSS custom properties (colors, fonts) | `@import` in both `style.css` and `admin.css` |
-| `assets/css/admin.css` | WP admin, login, admin bar | `load_theme_admin_styles()` in `inc/admin.php` |
+| `assets/css/admin.css` | WP admin, login, admin bar — **reusable components** | `load_theme_admin_styles()` in `inc/admin.php` (global) |
+| `assets/css/quote-editor.css` | Quote edit screen — **screen-specific layout** | Conditional enqueue (see below) |
 | `assets/css/_content.css` | Shared content styles (TinyMCE + frontend) | `add_editor_style()` + `@import` in `style.css` |
 | `style.css` | Frontend only | `The_Artist_Hub::enqueue_assets()` |
 
 > **Gotcha:** Frontend `style.css` does NOT load in WP admin. Use `admin.css` for all admin/editor/login styling.
+
+### CSS Split Strategy
+- **`admin.css`** — reusable components shared across all modules: card styles, badge styles, `tah-icon-button` hover-reveal, `tah-drag-handle`, form field styling, state classes
+- **Module-specific CSS** (e.g., `quote-editor.css`) — layout and structure unique to one screen. Loaded conditionally:
+
+```php
+add_action('admin_enqueue_scripts', function($hook) {
+    if ($hook !== 'post.php' && $hook !== 'post-new.php') return;
+    if (get_post_type() !== 'quotes') return;
+    wp_enqueue_style('tah-quote-editor', get_template_directory_uri() . '/assets/css/quote-editor.css');
+});
+```
 
 ### CSS Class Conventions (Info Sections UI)
 
@@ -246,6 +315,102 @@ wp_localize_script('tah-quote-sections', 'tahQuoteSectionsConfig', [
 4. Add delegated event handler in `quote-sections.js` using `$(document).on()`
 5. Add CSS in `admin.css` — use existing classes where possible
 
+### Conditional Asset Loading
+Module-specific JS files should only load on relevant screens:
+
+```php
+add_action('admin_enqueue_scripts', function($hook) {
+    if ($hook !== 'post.php' && $hook !== 'post-new.php') return;
+    if (get_post_type() !== 'quotes') return;
+    wp_enqueue_script('tah-quote-pricing', get_template_directory_uri() . '/assets/js/quote-pricing.js',
+        ['jquery', 'jquery-ui-sortable'], null, true);
+    wp_localize_script('tah-quote-pricing', 'tahPricingConfig', [
+        'ajaxUrl' => admin_url('admin-ajax.php'),
+        'nonce'   => wp_create_nonce('tah_pricing_nonce'),
+        'labels'  => [...],
+    ]);
+});
+```
+
+---
+
+## AJAX Endpoints
+
+### Convention
+All AJAX actions use `tah_` prefix. Each endpoint:
+1. Verifies nonce via `check_ajax_referer('tah_{action}_nonce', 'nonce')`
+2. Checks capability via `current_user_can('edit_posts')` (or more specific cap)
+3. Returns JSON via `wp_send_json_success($data)` / `wp_send_json_error($message)`
+
+### Registration Pattern
+```php
+add_action('wp_ajax_tah_save_pricing', [$this, 'ajax_save_pricing']);
+add_action('wp_ajax_tah_auto_suggest', [$this, 'ajax_auto_suggest']);
+// No wp_ajax_nopriv_ — admin-only endpoints
+```
+
+> **Gotcha:** AJAX endpoints are admin-only unless you also register `wp_ajax_nopriv_` hooks. For the pricing module, all endpoints are admin-only.
+
+---
+
+## WP-Cron
+
+### Scheduling Pattern
+Register custom cron events on module boot. Unregister on module disable/theme deactivation.
+
+```php
+// Schedule
+if (!wp_next_scheduled('tah_pricing_cron')) {
+    wp_schedule_event(time(), 'daily', 'tah_pricing_cron');
+}
+add_action('tah_pricing_cron', [$this, 'run_price_recalculation']);
+
+// Cleanup on theme switch
+add_action('switch_theme', function() {
+    wp_clear_scheduled_hook('tah_pricing_cron');
+});
+```
+
+### Custom Intervals
+If the module needs non-standard intervals (e.g., configurable frequency), use `cron_schedules` filter:
+
+```php
+add_filter('cron_schedules', function($schedules) {
+    $schedules['tah_custom_interval'] = [
+        'interval' => 3600, // seconds
+        'display'  => 'TAH Custom Interval',
+    ];
+    return $schedules;
+});
+```
+
+> **Production:** WP-Cron is request-triggered. For reliable scheduling, configure a real system crontab: `* * * * * cd /path/to/wp && wp cron event run --due-now`
+
+---
+
+## Custom Admin Pages
+
+### Registration Pattern
+For module-specific admin pages (not metaboxes), use `add_menu_page` / `add_submenu_page`:
+
+```php
+add_action('admin_menu', function() {
+    add_menu_page(
+        'Pricing Catalog',           // Page title
+        'Pricing Catalog',           // Menu title
+        'manage_options',            // Capability
+        'tah-pricing-catalog',       // Menu slug
+        [$this, 'render_catalog_page'], // Callback
+        'dashicons-tag',             // Icon
+        30                           // Position
+    );
+});
+```
+
+- Page slug uses `tah-` prefix
+- Callback renders the full page HTML inside `<div class="wrap">` container
+- Conditional asset loading: check `$_GET['page']` in `admin_enqueue_scripts`
+
 ---
 
 ## Editor Template Button (TinyMCE)
@@ -275,6 +440,23 @@ wp_localize_script('tah-quote-sections', 'tahQuoteSectionsConfig', [
 ### Page Templates
 - `page-templates/` directory contains specialized page layouts
 
+### Adding New Render Functions to `single-quotes.php`
+The quote template calls render functions in order. To add a new module's output:
+1. Define a global render function in your module (e.g., `tah_render_quote_pricing($post_id)`)
+2. Guard with `function_exists()` in the template for backward compatibility
+3. Add the call in `single-quotes.php` in the correct position (pricing tables go after `the_content()`, before info sections)
+
+```php
+// In single-quotes.php:
+the_content();
+if (function_exists('tah_render_quote_pricing')) {
+    tah_render_quote_pricing(get_the_ID());
+}
+if (function_exists('tah_render_quote_sections')) {
+    tah_render_quote_sections(get_the_ID());
+}
+```
+
 ---
 
 ## Common Gotchas
@@ -282,6 +464,7 @@ wp_localize_script('tah-quote-sections', 'tahQuoteSectionsConfig', [
 ### Admin Styling
 - Frontend `style.css` does NOT load in WP admin — use `assets/css/admin.css`
 - `admin.css` is enqueued via `load_theme_admin_styles()` in `inc/admin.php`
+- Module-specific CSS (e.g., `quote-editor.css`) must be conditionally enqueued with screen ID check
 - Icon buttons are hidden by default (`opacity: 0`) — always-visible icons need explicit overrides
 
 ### Info Sections
@@ -291,12 +474,24 @@ wp_localize_script('tah-quote-sections', 'tahQuoteSectionsConfig', [
 - Section keys come from `tah_template_part` post meta `_tah_section_key` — they are slug-like identifiers
 - When adding/removing global library sections, existing Trade recipes and Quote orders will still reference old keys — there is no automatic cascade
 
+### Custom Tables
+- Always use `$wpdb->prefix` — never hardcode `wp_` prefix
+- `dbDelta()` is finicky — column definitions must match exactly (no trailing commas, specific spacing)
+- Test schema migrations on both fresh installs and upgrades
+
+### AJAX
+- Always verify nonce first, then check capability
+- Use `wp_send_json_success()` / `wp_send_json_error()` — never `echo` + `die()`
+- Admin-only endpoints: only register `wp_ajax_` hooks, not `wp_ajax_nopriv_`
+
 ### JavaScript
-- All JS event handlers use **delegated events** (`$(document).on(...)`) since section rows can be dynamically added
+- All JS event handlers use **delegated events** (`$(document).on(...)`) since rows can be dynamically added
 - jQuery UI Sortable requires `jquery-ui-sortable` as a script dependency
-- `quote-sections.js` is enqueued only on the Quote edit screen and Trade taxonomy screens — check `enqueue_admin_assets()` hooks
+- Module JS is enqueued only on relevant screens — check `enqueue_admin_assets()` hooks with screen ID
+- Pass server config to JS via `wp_localize_script()` — never hardcode URLs or nonces
 
 ### Load Order
 - Modules boot via `TAH_Module_Registry::boot()` which runs during theme include
 - Admin hooks fire later — do not assume admin context at include time
-- `class-trade-presets.php` self-instantiates at file bottom: `new TAH_Trade_Presets();`
+- Admin-only classes self-instantiate at file bottom: `new TAH_Class_Name();`
+- Schema migrations run on `admin_init` or module boot — guard with version check

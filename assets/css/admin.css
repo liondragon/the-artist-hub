@@ -494,8 +494,8 @@ body.login {
     color: #646970;
 }
 
-.tah-icon-button,
-.tah-delete-section {
+.tah-quote-section-item .tah-icon-button,
+.tah-quote-section-item .tah-delete-section {
     margin: 0;
     padding: 0 4px;
     color: #3c434a !important;
@@ -519,13 +519,13 @@ body.login {
 }
 
 /* Keep icons visible if they have focus (accessibility) - use focus-visible to avoid sticky clicks */
-.tah-icon-button:focus-visible,
-.tah-delete-section:focus-visible {
+.tah-quote-section-item .tah-icon-button:focus-visible,
+.tah-quote-section-item .tah-delete-section:focus-visible {
     opacity: 1;
 }
 
-.tah-icon-button .dashicons,
-.tah-delete-section .dashicons {
+.tah-quote-section-item .tah-icon-button .dashicons,
+.tah-quote-section-item .tah-delete-section .dashicons {
     font-size: 20px;
     width: 25px;
     height: 20px;
@@ -534,14 +534,14 @@ body.login {
 }
 
 /* Delete Icon Hover - Red */
-.tah-delete-section:hover,
-.tah-delete-section:focus-visible {
+.tah-quote-section-item .tah-delete-section:hover,
+.tah-quote-section-item .tah-delete-section:focus-visible {
     color: #e74c3c !important;
 }
 
 /* Expand/Collapse Icon Hover - Blue */
-.tah-icon-button:hover,
-.tah-icon-button:focus-visible {
+.tah-quote-section-item .tah-icon-button:hover,
+.tah-quote-section-item .tah-icon-button:focus-visible {
     color: #0073aa !important;
 }
 
@@ -563,4 +563,121 @@ body.login {
     width: 20px;
     height: 20px;
     text-decoration: none;
+}
+
+/* ==========================================================================
+   Reusable Admin Components
+   ========================================================================== */
+
+.tah-card {
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+}
+
+.tah-card-header {
+    border-bottom: 1px solid #eaecf0;
+    padding: 12px 16px;
+}
+
+.tah-card-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1d2327;
+}
+
+.tah-card-body {
+    padding: 16px;
+}
+
+.tah-badge {
+    display: inline-block;
+    border-radius: 999px;
+    border: 1px solid #d0d5dd;
+    background: #f8f9fb;
+    color: #344054;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    padding: 5px 9px;
+    text-transform: uppercase;
+}
+
+.tah-badge--neutral {
+    background: #f2f4f7;
+    border-color: #d0d5dd;
+    color: #344054;
+}
+
+.tah-badge--accent {
+    background: #eff8ff;
+    border-color: #b2ddff;
+    color: #175cd3;
+}
+
+.tah-icon-button {
+    align-items: center;
+    background: #fff;
+    border: 1px solid #d0d5dd;
+    border-radius: 6px;
+    color: #344054;
+    cursor: pointer;
+    display: inline-flex;
+    justify-content: center;
+    min-height: 30px;
+    min-width: 30px;
+    padding: 0 8px;
+    transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.tah-icon-button:hover,
+.tah-icon-button:focus-visible {
+    background: #f9fafb;
+    border-color: #98a2b3;
+    color: #1d2939;
+}
+
+.tah-icon-button--danger:hover,
+.tah-icon-button--danger:focus-visible {
+    background: #fef3f2;
+    border-color: #fda29b;
+    color: #b42318;
+}
+
+.tah-badge--custom {
+    background: #fdf2fa;
+    border-color: #fcceee;
+    color: #9e165f;
+}
+
+.tah-form-control {
+    border: 1px solid #d0d5dd;
+    border-radius: 6px;
+    color: #1d2939;
+    font-size: 13px;
+    line-height: 1.4;
+    min-height: 32px;
+    padding: 6px 10px;
+    width: 100%;
+}
+
+.tah-form-control:focus {
+    border-color: #84caff;
+    box-shadow: 0 0 0 3px rgba(132, 202, 255, 0.3);
+    outline: none;
+}
+
+.tah-inline-checkbox {
+    align-items: center;
+    display: inline-flex;
+    font-size: 12px;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.tah-inline-checkbox input[type="checkbox"] {
+    margin: 0;
 }

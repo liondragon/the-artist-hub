@@ -28,5 +28,8 @@ final class TAH_Module_Registry
 
         require_once __DIR__ . '/info-sections/class-info-sections-module.php';
         TAH_Info_Sections_Module::boot();
+
+        require_once __DIR__ . '/pricing/class-pricing-module.php';
+        TAH_Pricing_Module::boot();
     }
 }

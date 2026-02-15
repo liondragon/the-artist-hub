@@ -1,0 +1,415 @@
+<?php
+declare(strict_types=1);
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+/**
+ * Custom quote edit screen scaffold.
+ */
+final class TAH_Quote_Edit_Screen
+{
+    const POST_TYPE = 'quotes';
+    const DUPLICATE_ACTION = 'tah_duplicate_quote';
+    const DUPLICATE_NONCE_ACTION = 'tah_duplicate_quote';
+
+    public function __construct()
+    {
+        add_action('add_meta_boxes_' . self::POST_TYPE, [$this, 'configure_meta_boxes'], 100);
+        add_action('edit_form_after_title', [$this, 'render_editor_shell']);
+        add_action('admin_enqueue_scripts', [$this, 'enqueue_assets']);
+        add_filter('admin_body_class', [$this, 'add_body_class']);
+        add_action('admin_post_' . self::DUPLICATE_ACTION, [$this, 'handle_duplicate_quote']);
+    }
+
+    /**
+     * Remove default editor chrome and non-essential boxes for the custom layout.
+     */
+    public function configure_meta_boxes()
+    {
+        remove_meta_box('slugdiv', self::POST_TYPE, 'normal');
+        remove_meta_box('postdivrich', self::POST_TYPE, 'normal');
+        remove_meta_box('postexcerpt', self::POST_TYPE, 'normal');
+        remove_meta_box('postcustom', self::POST_TYPE, 'normal');
+        remove_meta_box('commentstatusdiv', self::POST_TYPE, 'normal');
+        remove_meta_box('commentsdiv', self::POST_TYPE, 'normal');
+        remove_meta_box('trackbacksdiv', self::POST_TYPE, 'normal');
+        remove_meta_box('authordiv', self::POST_TYPE, 'normal');
+        remove_meta_box('revisionsdiv', self::POST_TYPE, 'normal');
+        remove_meta_box('formatdiv', self::POST_TYPE, 'side');
+        remove_meta_box('postimagediv', self::POST_TYPE, 'side');
+    }
+
+    /**
+     * Render top-level CRM shell; postboxes are moved into slots by JS.
+     *
+     * @param WP_Post $post
+     */
+    public function render_editor_shell($post)
+    {
+        if (!$post instanceof WP_Post || $post->post_type !== self::POST_TYPE) {
+            return;
+        }
+
+        $customer_name = (string) get_post_meta((int) $post->ID, 'customer_name', true);
+        $customer_address = (string) get_post_meta((int) $post->ID, 'customer_address', true);
+        $trade_name = $this->get_trade_name((int) $post->ID);
+        $quote_format = (string) get_post_meta((int) $post->ID, '_tah_quote_format', true);
+        $quote_format = $quote_format !== '' ? $quote_format : 'standard';
+        $status = get_post_status_object((string) $post->post_status);
+        $status_label = $status ? (string) $status->label : (string) $post->post_status;
+
+        echo '<div id="tah-quote-editor">';
+
+        echo '<div class="tah-quote-editor-header tah-card">';
+        echo '<div class="tah-quote-editor-header-main">';
+        echo '<div class="tah-quote-editor-header-row">';
+        echo '<strong class="tah-quote-editor-customer-name">' . esc_html($customer_name !== '' ? $customer_name : __('New Quote', 'the-artist')) . '</strong>';
+        if ($customer_address !== '') {
+            echo '<span class="tah-quote-editor-customer-address">' . esc_html($customer_address) . '</span>';
+        }
+        echo '</div>';
+        echo '<div class="tah-quote-editor-header-row">';
+        echo '<span class="tah-badge tah-badge--accent">' . esc_html(sprintf(__('Format: %s', 'the-artist'), ucfirst($quote_format))) . '</span>';
+        echo '<span class="tah-badge tah-badge--neutral">' . esc_html(sprintf(__('Status: %s', 'the-artist'), $status_label)) . '</span>';
+        echo '<span class="tah-badge tah-badge--neutral">' . esc_html(sprintf(__('Trade: %s', 'the-artist'), $trade_name)) . '</span>';
+        echo '</div>';
+        echo '<div class="tah-quote-editor-header-meta">';
+        echo '<div id="tah-quote-editor-header-customer" class="tah-quote-editor-slot"></div>';
+        echo '<div id="tah-quote-editor-header-trade" class="tah-quote-editor-slot"></div>';
+        echo '</div>';
+        echo '</div>';
+
+        echo '<div class="tah-quote-editor-header-actions">';
+        $duplicate_url = $this->build_duplicate_url((int) $post->ID);
+        echo '<a href="' . esc_url($duplicate_url) . '" class="button button-secondary">' . esc_html__('Duplicate Quote', 'the-artist') . '</a>';
+        echo '</div>';
+        echo '</div>';
+
+        echo '<div class="tah-quote-editor-layout">';
+
+        echo '<section class="tah-quote-editor-main">';
+        echo '<div id="tah-quote-editor-main-pricing" class="tah-quote-editor-slot"></div>';
+        echo '</section>';
+
+        echo '<aside class="tah-quote-editor-sidebar">';
+        echo '<div id="tah-quote-editor-sidebar-sections" class="tah-quote-editor-slot"></div>';
+        echo '<div id="tah-quote-editor-sidebar-publish" class="tah-quote-editor-slot"></div>';
+        echo '</aside>';
+
+        echo '</div>'; // .tah-quote-editor-layout
+        echo '</div>'; // #tah-quote-editor
+    }
+
+    /**
+     * Add a body class to target quote editor chrome overrides.
+     */
+    public function add_body_class($classes)
+    {
+        if ($this->is_quote_edit_screen()) {
+            return trim($classes . ' tah-quote-editor-enabled');
+        }
+
+        return $classes;
+    }
+
+    /**
+     * Load quote-edit-screen-specific styles and metabox relocation script.
+     */
+    public function enqueue_assets($hook_suffix)
+    {
+        if (!$this->is_quote_edit_screen($hook_suffix)) {
+            return;
+        }
+
+        $css_path = get_template_directory() . '/assets/css/quote-editor.css';
+        $css_version = file_exists($css_path) ? (string) filemtime($css_path) : '1.0.0';
+
+        wp_enqueue_style(
+            'tah-quote-editor',
+            get_template_directory_uri() . '/assets/css/quote-editor.css',
+            ['theme-admin'],
+            $css_version
+        );
+
+        wp_enqueue_script('jquery');
+        wp_add_inline_script('jquery', $this->relocation_script());
+    }
+
+    /**
+     * @return string
+     */
+    private function relocation_script()
+    {
+        return <<<'JS'
+jQuery(function ($) {
+    var map = [
+        { id: 'tfa_metabox', target: '#tah-quote-editor-header-customer' },
+        { id: 'tah_trade_single_select', target: '#tah-quote-editor-header-trade' },
+        { id: 'tah_quote_pricing', target: '#tah-quote-editor-main-pricing' },
+        { id: 'tah_quote_sections', target: '#tah-quote-editor-sidebar-sections' },
+        { id: 'submitdiv', target: '#tah-quote-editor-sidebar-publish' }
+    ];
+
+    map.forEach(function (entry) {
+        var $panel = $('#' + entry.id);
+        var $target = $(entry.target);
+
+        if (!$panel.length || !$target.length) {
+            return;
+        }
+
+        $panel.addClass('tah-quote-editor-panel');
+        $target.append($panel);
+    });
+});
+JS;
+    }
+
+    /**
+     * @return bool
+     */
+    private function is_quote_edit_screen($hook_suffix = '')
+    {
+        if ($hook_suffix !== '' && !in_array($hook_suffix, ['post.php', 'post-new.php'], true)) {
+            return false;
+        }
+
+        $screen = get_current_screen();
+
+        return $screen instanceof WP_Screen
+            && $screen->base === 'post'
+            && $screen->post_type === self::POST_TYPE;
+    }
+
+    /**
+     * @return string
+     */
+    private function get_trade_name($post_id)
+    {
+        $terms = wp_get_post_terms($post_id, 'trade');
+        if (is_wp_error($terms) || empty($terms)) {
+            return (string) __('Not set', 'the-artist');
+        }
+
+        $first = reset($terms);
+
+        return $first instanceof WP_Term
+            ? (string) $first->name
+            : (string) __('Not set', 'the-artist');
+    }
+
+    /**
+     * Duplicate quote post + pricing data and redirect to the new draft.
+     */
+    public function handle_duplicate_quote()
+    {
+        $source_quote_id = isset($_GET['quote_id']) ? (int) wp_unslash((string) $_GET['quote_id']) : 0;
+        if ($source_quote_id <= 0) {
+            wp_die(esc_html__('Invalid quote ID.', 'the-artist'));
+        }
+
+        check_admin_referer(self::DUPLICATE_NONCE_ACTION . '_' . $source_quote_id);
+
+        $source_post = get_post($source_quote_id);
+        if (!$source_post instanceof WP_Post || $source_post->post_type !== self::POST_TYPE) {
+            wp_die(esc_html__('Quote not found.', 'the-artist'));
+        }
+
+        if (!current_user_can('edit_post', $source_quote_id)) {
+            wp_die(esc_html__('You are not allowed to duplicate this quote.', 'the-artist'));
+        }
+
+        $new_quote_id = wp_insert_post([
+            'post_type' => self::POST_TYPE,
+            'post_status' => 'draft',
+            'post_title' => (string) $source_post->post_title,
+            'post_content' => (string) $source_post->post_content,
+            'post_excerpt' => (string) $source_post->post_excerpt,
+            'post_author' => get_current_user_id(),
+        ], true);
+
+        if (is_wp_error($new_quote_id) || (int) $new_quote_id <= 0) {
+            wp_die(esc_html__('Could not create duplicate quote.', 'the-artist'));
+        }
+
+        $new_quote_id = (int) $new_quote_id;
+
+        $this->copy_quote_taxonomies($source_quote_id, $new_quote_id);
+        $this->copy_quote_meta($source_quote_id, $new_quote_id);
+        if (!$this->copy_pricing_rows($source_quote_id, $new_quote_id)) {
+            wp_delete_post($new_quote_id, true);
+            wp_die(esc_html__('Could not duplicate pricing rows.', 'the-artist'));
+        }
+
+        wp_safe_redirect(admin_url('post.php?post=' . $new_quote_id . '&action=edit'));
+        exit;
+    }
+
+    private function build_duplicate_url(int $quote_id): string
+    {
+        $url = add_query_arg([
+            'action' => self::DUPLICATE_ACTION,
+            'quote_id' => $quote_id,
+        ], admin_url('admin-post.php'));
+
+        return wp_nonce_url($url, self::DUPLICATE_NONCE_ACTION . '_' . $quote_id);
+    }
+
+    private function copy_quote_taxonomies(int $source_quote_id, int $new_quote_id): void
+    {
+        $taxonomy_names = get_object_taxonomies(self::POST_TYPE, 'names');
+        if (!is_array($taxonomy_names) || empty($taxonomy_names)) {
+            return;
+        }
+
+        foreach ($taxonomy_names as $taxonomy_name) {
+            $term_ids = wp_get_object_terms($source_quote_id, $taxonomy_name, ['fields' => 'ids']);
+            if (is_wp_error($term_ids)) {
+                continue;
+            }
+
+            if (is_array($term_ids)) {
+                wp_set_object_terms($new_quote_id, $term_ids, $taxonomy_name, false);
+            }
+        }
+    }
+
+    private function copy_quote_meta(int $source_quote_id, int $new_quote_id): void
+    {
+        $all_meta = get_post_meta($source_quote_id);
+        if (!is_array($all_meta) || empty($all_meta)) {
+            return;
+        }
+
+        $skip_keys = [
+            '_edit_lock' => true,
+            '_edit_last' => true,
+            '_wp_old_slug' => true,
+            '_tah_prices_resolved_at' => true,
+            '_tah_quote_view_count' => true,
+            '_tah_quote_last_viewed_at' => true,
+            '_tah_lock_offer_expires_at' => true,
+            '_tah_price_locked_until' => true,
+        ];
+
+        foreach ($all_meta as $meta_key => $values) {
+            if (!is_string($meta_key) || isset($skip_keys[$meta_key])) {
+                continue;
+            }
+
+            if (!is_array($values)) {
+                continue;
+            }
+
+            delete_post_meta($new_quote_id, $meta_key);
+            foreach ($values as $meta_value) {
+                add_post_meta($new_quote_id, $meta_key, maybe_unserialize($meta_value));
+            }
+        }
+    }
+
+    private function copy_pricing_rows(int $source_quote_id, int $new_quote_id): bool
+    {
+        $repository = new TAH_Pricing_Repository();
+        $source_groups = $repository->get_quote_groups($source_quote_id);
+        if (empty($source_groups)) {
+            return true;
+        }
+
+        $group_rows = [];
+        $group_id_map = [];
+        foreach ($source_groups as $index => $source_group) {
+            if (!is_array($source_group)) {
+                continue;
+            }
+
+            $old_group_id = isset($source_group['id']) ? (int) $source_group['id'] : 0;
+            $group_rows[] = [
+                'id' => 0,
+                'name' => isset($source_group['name']) ? (string) $source_group['name'] : '',
+                'description' => isset($source_group['description']) ? (string) $source_group['description'] : '',
+                'selection_mode' => isset($source_group['selection_mode']) ? (string) $source_group['selection_mode'] : 'all',
+                'show_subtotal' => !empty($source_group['show_subtotal']),
+                'is_collapsed' => !empty($source_group['is_collapsed']),
+                'sort_order' => isset($source_group['sort_order']) ? (int) $source_group['sort_order'] : $index,
+            ];
+            $group_id_map[] = $old_group_id;
+        }
+
+        $persisted_group_ids = $repository->save_quote_groups($new_quote_id, $group_rows);
+        if (empty($persisted_group_ids)) {
+            return false;
+        }
+
+        $new_group_map = [];
+        foreach ($group_id_map as $index => $old_group_id) {
+            $new_group_id = isset($persisted_group_ids[$index]) ? (int) $persisted_group_ids[$index] : 0;
+            if ($old_group_id > 0 && $new_group_id > 0) {
+                $new_group_map[$old_group_id] = $new_group_id;
+            }
+        }
+
+        $source_items = $repository->get_quote_line_items($source_quote_id);
+        if (empty($source_items)) {
+            return true;
+        }
+
+        $item_rows = [];
+        foreach ($source_items as $index => $source_item) {
+            if (!is_array($source_item)) {
+                continue;
+            }
+
+            $old_group_id = isset($source_item['group_id']) ? (int) $source_item['group_id'] : 0;
+            $new_group_id = isset($new_group_map[$old_group_id]) ? (int) $new_group_map[$old_group_id] : 0;
+            if ($new_group_id <= 0) {
+                continue;
+            }
+
+            $item_rows[] = [
+                'id' => 0,
+                'group_id' => $new_group_id,
+                'pricing_item_id' => isset($source_item['pricing_item_id']) && (int) $source_item['pricing_item_id'] > 0
+                    ? (int) $source_item['pricing_item_id']
+                    : null,
+                'item_type' => isset($source_item['item_type']) ? (string) $source_item['item_type'] : 'standard',
+                'title' => isset($source_item['title']) ? (string) $source_item['title'] : '',
+                'description' => isset($source_item['description']) ? (string) $source_item['description'] : null,
+                'quantity' => isset($source_item['quantity']) ? (float) $source_item['quantity'] : 0.0,
+                'unit_type' => isset($source_item['unit_type']) ? (string) $source_item['unit_type'] : 'flat',
+                'price_mode' => isset($source_item['price_mode']) ? (string) $source_item['price_mode'] : TAH_Price_Formula::MODE_DEFAULT,
+                'price_modifier' => isset($source_item['price_modifier']) ? (float) $source_item['price_modifier'] : 0.0,
+                'resolved_price' => isset($source_item['resolved_price']) ? (float) $source_item['resolved_price'] : 0.0,
+                'previous_resolved_price' => isset($source_item['previous_resolved_price']) && is_numeric($source_item['previous_resolved_price'])
+                    ? (float) $source_item['previous_resolved_price']
+                    : null,
+                'is_selected' => !array_key_exists('is_selected', $source_item) || !empty($source_item['is_selected']),
+                'sort_order' => isset($source_item['sort_order']) ? (int) $source_item['sort_order'] : $index,
+                'material_cost' => isset($source_item['material_cost']) && is_numeric($source_item['material_cost'])
+                    ? (float) $source_item['material_cost']
+                    : null,
+                'labor_cost' => isset($source_item['labor_cost']) && is_numeric($source_item['labor_cost'])
+                    ? (float) $source_item['labor_cost']
+                    : null,
+                'line_sku' => isset($source_item['line_sku']) ? (string) $source_item['line_sku'] : null,
+                'tax_rate' => isset($source_item['tax_rate']) && is_numeric($source_item['tax_rate'])
+                    ? (float) $source_item['tax_rate']
+                    : null,
+                'note' => isset($source_item['note']) ? (string) $source_item['note'] : null,
+            ];
+        }
+
+        if (!empty($item_rows)) {
+            $persisted_line_item_ids = $repository->save_quote_line_items($new_quote_id, $item_rows);
+            if (empty($persisted_line_item_ids)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+}
+
+$GLOBALS['tah_quote_edit_screen'] = new TAH_Quote_Edit_Screen();

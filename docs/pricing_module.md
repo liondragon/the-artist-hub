@@ -149,6 +149,11 @@ Appended automatically whenever `unit_price` changes. Useful for historical stat
 - `_tah_prices_resolved_at` (DATETIME) — stored on the quote post, not per line item. The cron checks if any linked pricing item's `updated_at` is newer than this timestamp to determine if recalculation is needed.
 - `_tah_quote_format` (`VARCHAR`) — `standard` (default) or `insurance`. Controls metabox and template variant.
 - `_tah_quote_tax_rate` (`DECIMAL(5,4) NULL`) — Sales tax percentage for insurance quotes.
+- `_tah_price_locked_until` (`DATETIME NULL`) — When set and > now, cron skips this quote. Set by the lock endpoint.
+- `_tah_lock_offer_expires_at` (`DATETIME NULL`) — Expiry of the lock offer window. Set by cron to `now + 3 days` when prices change.
+- `_tah_quote_view_count` (`INT DEFAULT 0`) — Number of customer views on the frontend. Excludes logged-in WP users and `?nt` parameter.
+- `_tah_quote_last_viewed_at` (`DATETIME NULL`) — Timestamp of last customer view.
+- `_tah_quote_admin_notes` (`TEXT NULL`) — Internal admin-only notes, never rendered on the frontend.
 
 ---
 
@@ -211,12 +216,18 @@ A scheduled task (WP-Cron or real cron) runs periodically (configurable, **daily
 ### Price Locking
 - Link format: `?action=tah_lock_price&quote_id=123&token=xyz` (token = `wp_hash(quote_id . post_date)` — simple hash, not cryptographic; worst case is a free price lock)
 - **Lock offer window:** The link is only valid while `_tah_lock_offer_expires_at > now`. This meta is set by the cron to `now + 3 days` when prices change. If the customer clicks after this window, they see the "offer expired" message.
+- **Double-update rule:** If prices change again while an existing offer window is still open, the cron **overwrites** `_tah_lock_offer_expires_at` to a fresh `now + 3 days` and updates `previous_resolved_price` to the most recent pre-update values. Customer always reverts to the immediately prior prices.
 - Clicking the link (within the window) **reverts** `resolved_price` to `previous_resolved_price` for all affected line items on the quote, honoring the pre-update prices
 - Sets `_tah_price_locked_until` (post meta) to `_tah_lock_offer_expires_at` (the remaining time in the offer window)
 - While locked, the cron skips this quote — prices stay at the reverted (old) values
 - After lock expires and quote is not accepted, the next cron run recalculates all prices at whatever the current catalog prices are
 - Formula relationships (`$+150`, `$*1.1`) are preserved throughout — no data is lost
 - If clicked after `_tah_lock_offer_expires_at`: friendly message explaining the offer expired, with link to current quote
+
+### Lock Link Delivery
+- **Visibility:** The "Copy lock link" button is shown in the pricing metabox **only when** `_tah_lock_offer_expires_at > now` and at least one line item has a non-NULL `previous_resolved_price`. Otherwise the button is hidden.
+- **While email is deferred:** The admin manually shares the URL with the customer via email, text, or other channels.
+- **After email module (Phase 2/3):** The cron-triggered re-engagement email will include the lock link automatically.
 
 ### WP-Cron Reliability
 - WP-Cron is triggered by site visits and is unreliable on low-traffic sites. For production, configure a **real system crontab** (`wp cron event run --due-now`) to ensure consistent execution.
@@ -245,14 +256,54 @@ Rounding is applied to the **resolved price** after all formula computation. Exa
 
 ## Admin UX
 
-### Line Items Metabox
-- Similar in style to the existing `TAH_Quote_Sections` panel
-- **Add groups** with a name and selection mode
-- **Add line items** within each group via auto-suggest from the pricing catalog
-- **Drag-and-drop reorder** items and groups
-- **Inline formula price field** per item (`$`, `$+50`, `$*1.1`, or fixed amount)
-- Auto-calculated totals per group and grand total (computed on-the-fly, not stored)
-- Visual badges showing price mode (DEFAULT / MODIFIED / CUSTOM) consistent with existing section badges
+### Quote Edit Screen — Custom Layout (Option B)
+
+The quote edit screen replaces the standard WordPress post editor with a **CRM-style full-width layout**, while still using the WP post edit URL (`post.php?post=X&action=edit`) and its save/status/revision plumbing.
+
+**Implementation approach:**
+1. Use `remove_meta_box()` to clear default WP boxes (editor, slug, etc.) on the `quotes` post type
+2. Inject custom UI via `edit_form_after_title` hook
+3. Wrap all custom markup in `<div id="tah-quote-editor">` — all CSS is namespaced under `#tah-quote-editor` to isolate from WP admin styles and survive WP core updates
+4. All code lives in `inc/modules/pricing/` (module-isolated, never in `functions.php`)
+5. WP admin sidebar stays visible — provides navigation between quotes list, catalog, settings
+
+**CSS split strategy:**
+- **Reusable styles** (card components, badge styles, drag handles, icon buttons, hover-reveal pattern, form field styling) go in `assets/css/admin.css` so they can be shared across all modules
+- **Quote-specific layout** (pricing table columns, group collapsibility, header bar layout) goes in `assets/css/quote-editor.css`, loaded only on the quote edit screen
+- All classes use `tah-` prefix (see §Development Conventions)
+
+**Screen layout:**
+
+| Zone | Contents |
+|---|---|
+| **Header bar** | Customer name, address, trade selector, quote format badge, status, "Copy lock link" button (when applicable) |
+| **Pricing table** (full width) | Groups as collapsible sections, each with a clean line-item table: drag handle, #, Item, Description, Qty, Rate, Amount, delete button. Add-item row with auto-suggest. Group subtotals. Grand total row. |
+| **Sidebar / below** | Info sections panel (`TAH_Quote_Sections`), notes, publish box (restyled) |
+
+**Pricing table details:**
+- Each group renders as a table section with editable heading, description, selection mode, and settings
+- Line items use inline-editable fields — no modal popups
+- **Qty column** accepts plain numbers or arithmetic formulas (e.g., `12*15` → `180`, `12*15 + 8*10` → `260`). Displays the resolved number when unfocused, shows the formula when focused. Designed for square footage calculations in flooring.
+- **Rate column** shows resolved price when unfocused, formula input when focused, with badges (DEFAULT / MODIFIED / CUSTOM)
+- **Amount column** is auto-calculated (`qty × resolved_price`), read-only
+- **Margin column** (admin-only) shows profit margin percentage if cost data is available. Never rendered on the frontend.
+- **Add item row** at the bottom of each group with auto-suggest from the pricing catalog
+- **Drag-and-drop** reorder for both items within groups and groups themselves
+- **Keyboard navigation:** Tab moves between cells in the line item table, Enter adds a new row below the current one
+- **AJAX draft save:** Changes save via AJAX without full page reload — visual confirmation ("Saved" flash) keeps the workflow snappy
+- **Duplicate Quote:** Action button in the header bar copies the current quote (all groups, items, formulas) into a new draft quote
+- Group subtotals and grand total computed on-the-fly
+- "+Add Group" button below the last group
+
+### Quote View Tracking
+- When a customer views the frontend quote page, increment `_tah_quote_view_count` and update `_tah_quote_last_viewed_at`
+- **Exclusions:** Skip tracking for logged-in WP users (`is_user_logged_in()`) and requests with `?nt` URL parameter
+- Admin header bar displays: *"Viewed 3 times • Last viewed Feb 14 at 3:22 PM"*
+
+### Admin Notes
+- Per-quote internal notes field in the sidebar of the edit screen
+- Stored as `_tah_quote_admin_notes` post meta
+- Never rendered on the frontend — strictly for admin use (e.g., "Customer prefers Brazilian cherry")
 
 ### Pricing Catalog Admin
 - Dedicated admin page for managing the central pricing table
@@ -421,6 +472,40 @@ Quick reference for which operations create, read, update, and delete each entit
 
 ---
 
+## Development Conventions
+
+All conventions below are consistent with the existing theme patterns documented in [`Developer_Guide.md`](file:///home/zhenya/dev/the-artist-hub/docs/Developer_Guide.md). That document is the authoritative reference for theme-wide standards.
+
+### Module Contract
+- Bootstrap class: `inc/modules/pricing/class-pricing-module.php` → `TAH_Pricing_Module`
+- `::boot()` must be idempotent (static `$booted` guard)
+- `::is_enabled()` via `apply_filters('tah_module_pricing_enabled', true)`
+- Registered in `inc/modules/class-module-registry.php` in explicit load order
+- Admin-only classes (metabox, edit screen) loaded behind `is_admin()` guard
+
+### CSS Architecture
+- **`admin.css`** — reusable components shared across modules: card styles, badge styles, `tah-icon-button` hover-reveal, `tah-drag-handle`, form field styling, state classes (`.tah-section-disabled`, etc.)
+- **`quote-editor.css`** — quote-specific layout only: pricing table column widths, group collapsibility, header bar, rate/amount fields. Loaded only on the quote edit screen via `admin_enqueue_scripts` with screen check.
+- All classes use `tah-` prefix (e.g., `tah-group-card`, `tah-line-item`, `tah-rate-field`, `tah-badge-modified`)
+- Zero reliance on WP admin CSS classes for styling — only for structure/hooks
+- Groups render as **clean cards** with subtle borders and shadows, not WP metabox chrome
+- Icon buttons follow the **hover-reveal pattern**: `opacity: 0` by default, `opacity: 1` on parent `:hover` and `:focus-visible`
+
+### JavaScript Patterns
+- **Delegated events** — `$(document).on('click', '.tah-selector', handler)` since pricing rows are dynamically added
+- **jQuery UI Sortable** for drag-and-drop (declare `jquery-ui-sortable` as script dependency)
+- **`wp_localize_script()`** to pass PHP config (nonces, AJAX URLs, labels, initial data) to JS
+- Script loaded only on quote edit screen (conditional enqueue via `admin_enqueue_scripts` hook + screen ID check)
+
+### Instantiation Pattern
+- Admin-only classes self-instantiate at file bottom: `new TAH_Class_Name();`
+- Consistent with existing `class-trade-presets.php` pattern
+
+### Future Extensibility
+- If the editor grows to need tabs (Pricing, Documents, History), use hash-based navigation (`#/pricing`, `#/documents`) for instant switching without page reloads
+
+---
+
 ## Portability to Laravel/Next.js
 
 - All three tables are plain SQL with no WP-specific structures (no `post_meta`, no serialized arrays)
@@ -438,7 +523,7 @@ Quick reference for which operations create, read, update, and delete each entit
 
 3. **Quantity handling** — Most quotes use quantity × unit price across multiple line items, tallied in a total at the bottom. Totals = sum of (qty × resolved_price) per group.
 
-4. **Re-engagement email template** — Editable HTML/CSS email templates with variables (customer name, quote link, old/new totals) are deferred to **Phase 2/3** after email module is set up. Price locking uses a quote-level `_tah_price_locked_until` post meta — no data is overwritten.
+4. **Re-engagement email template** — Editable HTML/CSS email templates with variables (customer name, quote link, old/new totals) are deferred to **Phase 2/3** after email module is set up. Price locking temporarily reverts `resolved_price` to `previous_resolved_price`; original formula relationships are preserved and prices are recalculated from current catalog values after the lock expires.
 
 5. **Cron frequency** — Configurable via settings. **Daily by default.**
 
@@ -458,8 +543,22 @@ Quick reference for which operations create, read, update, and delete each entit
 
 3. **Email templates module (Phase 2/3)** — Editable HTML/CSS email templates with variable substitution for re-engagement emails and other notifications.
 
-4. **Quote duplication / templates (Phase 2)** — Duplicate existing quotes as starting points for new ones.
+4. **Visual status pipeline (Phase 2)** — Replace WP status dropdown with visual pipeline (Draft → Sent → Viewed → Accepted/Declined). Requires email/acceptance module.
 
-5. **Customer-facing accept/decline (Phase 2)** — Accept button that locks the quote, records acceptance timestamp, triggers notifications.
+5. **Activity log sidebar (Phase 2)** — Quote-level event log ("Price updated Feb 14", "Sent to customer Feb 15"). Requires email/acceptance module.
 
-6. **Price components for standard quotes (Future)** — The `material_cost` and `labor_cost` columns exist on all line items but are only used by insurance quotes initially. Standard quotes will adopt price components in a future phase.
+6. **Customer-facing accept/decline (Phase 2)** — Accept button that locks the quote, records acceptance timestamp, triggers notifications.
+
+7. **Price components for standard quotes (Future)** — The `material_cost` and `labor_cost` columns exist on all line items but are only used by insurance quotes initially. Standard quotes will adopt price components in a future phase.
+
+8. **Quote expiry behavior (Phase 2)** — `tah_quote_expiry_enabled` and `tah_quote_expiry_days` settings need design (frontend banner, prevent acceptance, status change).
+
+9. **PDF export (Phase 2)** — One-click "Download PDF" button renders the frontend quote template to PDF via Dompdf or similar.
+
+10. **Quote revision history (Phase 2)** — Version diffing within a quote ("V1: $12,500 → V2: $13,000 — added hardwood upgrade").
+
+11. **Quick stats dashboard widget (Phase 2)** — WP dashboard widget showing monthly stats: quotes sent, total value, accepted count, close rate, average quote value. Aggregated from existing post data + meta.
+
+12. **Follow-up reminders (Phase 2)** — Date field on quote edit screen ("Remind me to follow up on [date]"). Admin dashboard notice: "3 quotes need follow-up today." Combines with view tracking for context.
+
+13. **Job site photos per quote (Phase 2)** — Gallery field wiring WP media library to the quote. Photos display on the frontend above or alongside the pricing table. Contextualizes the quote for the customer.
