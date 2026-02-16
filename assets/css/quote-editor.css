@@ -397,7 +397,11 @@ body.tah-quote-editor-enabled .tah-split-item-danger:focus {
 }
 
 /* Custom Header Styling to avoid JS conflicts */
-#tah-quote-editor .tah-postbox-header {
+/* Centralized Metabox Styling */
+
+/* Header Container */
+#tah-quote-editor .tah-postbox-header,
+#tah-quote-editor .postbox .postbox-header {
     border-bottom: 1px solid #d0d5dd;
     display: flex;
     align-items: center;
@@ -405,18 +409,26 @@ body.tah-quote-editor-enabled .tah-split-item-danger:focus {
     padding: 0 12px;
     min-height: 44px;
     cursor: pointer;
+    background: #fff;
+    /* Ensure background is white */
 }
 
-#tah-quote-editor .tah-hndle {
+/* Header Title */
+#tah-quote-editor .tah-hndle,
+#tah-quote-editor .postbox .hndle {
     font-size: 14px;
     font-weight: 600;
     margin: 0;
     padding: 0;
     line-height: 1.4;
     cursor: inherit;
+    flex-grow: 1;
+    /* Allow title to take up available space */
 }
 
-#tah-quote-editor .tah-toggle-btn {
+/* Toggle Button Container */
+#tah-quote-editor .tah-toggle-btn,
+#tah-quote-editor .postbox .handlediv {
     background: transparent;
     border: none;
     cursor: pointer;
@@ -427,14 +439,21 @@ body.tah-quote-editor-enabled .tah-split-item-danger:focus {
     align-items: center;
     justify-content: center;
     color: #1d2327;
+    float: none;
+    /* Override WP float */
+    margin: 0;
+    /* Override WP margin */
 }
 
-#tah-quote-editor .tah-toggle-btn:focus {
+#tah-quote-editor .tah-toggle-btn:focus,
+#tah-quote-editor .postbox .handlediv:focus {
     box-shadow: none;
     outline: 1px solid #2271b1;
 }
 
-#tah-quote-editor .tah-toggle-btn .toggle-indicator::before {
+/* Toggle Icon */
+#tah-quote-editor .tah-toggle-btn .toggle-indicator::before,
+#tah-quote-editor .postbox .handlediv .toggle-indicator::before {
     content: "\f142";
     /* dashicons-arrow-up */
     font: normal 20px/1 dashicons;
@@ -443,13 +462,16 @@ body.tah-quote-editor-enabled .tah-split-item-danger:focus {
     -moz-osx-font-smoothing: grayscale;
 }
 
-#tah-quote-editor .postbox.closed .tah-toggle-btn .toggle-indicator::before {
-    content: "\f140";
-    /* dashicons-arrow-down */
+/* Closed State */
+#tah-quote-editor .postbox.closed .tah-postbox-header,
+#tah-quote-editor .postbox.closed .postbox-header {
+    border-bottom: none;
 }
 
-#tah-quote-editor .postbox.closed .tah-postbox-header {
-    border-bottom: none;
+#tah-quote-editor .postbox.closed .tah-toggle-btn .toggle-indicator::before,
+#tah-quote-editor .postbox.closed .handlediv .toggle-indicator::before {
+    content: "\f140";
+    /* dashicons-arrow-down */
 }
 
 #tah-quote-editor #tah-quote-editor-header-panels .postbox {
