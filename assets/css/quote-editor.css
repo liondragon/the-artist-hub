@@ -42,15 +42,15 @@ body.tah-quote-editor-enabled .wrap h1.wp-heading-inline {
 
 #tah-quote-editor .tah-quote-editor-header-main {
     display: flex;
+    flex: 1 1 auto;
     flex-direction: column;
     gap: 10px;
     min-width: 0;
 }
 
-#tah-quote-editor .tah-quote-editor-header-meta {
-    display: grid;
-    gap: 12px;
-    grid-template-columns: repeat(2, minmax(240px, 1fr));
+#tah-quote-editor .tah-quote-editor-header-panels {
+    margin-top: 2px;
+    width: 100%;
 }
 
 #tah-quote-editor .tah-quote-editor-customer-name {
@@ -95,6 +95,13 @@ body.tah-quote-editor-enabled .wrap h1.wp-heading-inline {
     display: none;
 }
 
+#tah-quote-editor .tah-quote-editor-panels {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-height: 48px;
+}
+
 #tah-quote-editor .tah-quote-editor-panel {
     margin: 0;
 }
@@ -103,18 +110,21 @@ body.tah-quote-editor-enabled .wrap h1.wp-heading-inline {
     border-radius: 8px;
 }
 
-#tah-quote-editor #tah-quote-editor-header-meta .postbox {
+#tah-quote-editor #tah-quote-editor-header-panels .postbox {
     margin-bottom: 0;
 }
 
-#tah-quote-editor #tah-quote-editor-header-meta .inside {
+#tah-quote-editor #tah-quote-editor-header-panels .inside {
     margin: 0;
     padding: 12px 14px 14px;
 }
 
-#tah-quote-editor .postbox .hndle,
-#tah-quote-editor .postbox .handlediv {
-    pointer-events: none;
+#tah-quote-editor .postbox .hndle {
+    cursor: move;
+}
+
+#tah-quote-editor .postbox .handle-actions {
+    display: none;
 }
 
 #tah-quote-editor #tah_quote_pricing .inside {
@@ -502,6 +512,13 @@ body.tah-quote-editor-enabled .wrap h1.wp-heading-inline {
     height: 70px;
 }
 
+#tah-quote-editor .tah-editor-panel-placeholder {
+    background: #f8fafc;
+    border: 1px dashed #98a2b3;
+    border-radius: 8px;
+    height: 88px;
+}
+
 #tah-quote-editor .tah-line-placeholder {
     background: #f2f4f7;
     border: 1px dashed #98a2b3;
@@ -530,10 +547,6 @@ body.tah-quote-editor-enabled .wrap h1.wp-heading-inline {
         align-items: flex-start;
         flex-direction: column;
         gap: 12px;
-    }
-
-    #tah-quote-editor .tah-quote-editor-header-meta {
-        grid-template-columns: 1fr;
     }
 
     #tah-quote-editor .tah-quote-editor-layout {

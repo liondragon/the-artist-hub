@@ -12,6 +12,7 @@ final class TAH_Quote_Edit_Screen
 {
     const POST_TYPE = 'quotes';
     const QUOTE_OPTIONS_METABOX_ID = 'tah_quote_options';
+    const ADMIN_NOTES_METABOX_ID = 'tah_quote_admin_notes';
     const DUPLICATE_ACTION = 'tah_duplicate_quote';
     const DUPLICATE_NONCE_ACTION = 'tah_duplicate_quote';
     const NOTES_NONCE_ACTION = 'tah_quote_admin_notes_save';
@@ -22,9 +23,11 @@ final class TAH_Quote_Edit_Screen
     {
         add_action('add_meta_boxes', [$this, 'configure_meta_boxes'], 100, 2);
         add_action('add_meta_boxes_' . self::POST_TYPE, [$this, 'register_quote_options_metabox'], 100);
+        add_action('add_meta_boxes_' . self::POST_TYPE, [$this, 'register_admin_notes_metabox'], 100);
         add_action('edit_form_after_title', [$this, 'render_editor_shell']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_assets']);
         add_filter('admin_body_class', [$this, 'add_body_class']);
+        add_action('post_submitbox_misc_actions', [$this, 'render_duplicate_submitbox_action']);
         add_action('admin_post_' . self::DUPLICATE_ACTION, [$this, 'handle_duplicate_quote']);
         add_action('save_post_' . self::POST_TYPE, [$this, 'save_admin_notes'], 40, 3);
     }
@@ -63,6 +66,18 @@ final class TAH_Quote_Edit_Screen
         );
     }
 
+    public function register_admin_notes_metabox($post = null): void
+    {
+        add_meta_box(
+            self::ADMIN_NOTES_METABOX_ID,
+            __('Admin Notes', 'the-artist'),
+            [$this, 'render_admin_notes_metabox'],
+            self::POST_TYPE,
+            'side',
+            'default'
+        );
+    }
+
     /**
      * Render top-level CRM shell; postboxes are moved into slots by JS.
      *
@@ -82,8 +97,6 @@ final class TAH_Quote_Edit_Screen
         $status = get_post_status_object((string) $post->post_status);
         $status_label = $status ? (string) $status->label : (string) $post->post_status;
         $view_tracking_summary = $this->get_view_tracking_summary((int) $post->ID);
-        $admin_notes = (string) get_post_meta((int) $post->ID, self::NOTES_META_KEY, true);
-
         echo '<div id="tah-quote-editor">';
 
         echo '<div class="tah-quote-editor-header tah-card">';
@@ -104,34 +117,18 @@ final class TAH_Quote_Edit_Screen
             echo '<span class="tah-quote-editor-view-summary">' . esc_html($view_tracking_summary) . '</span>';
             echo '</div>';
         }
-        echo '<div class="tah-quote-editor-header-meta">';
-        echo '<div id="tah-quote-editor-header-customer" class="tah-quote-editor-slot"></div>';
-        echo '<div id="tah-quote-editor-header-trade" class="tah-quote-editor-slot"></div>';
-        echo '</div>';
-        echo '</div>';
-
-        echo '<div class="tah-quote-editor-header-actions">';
-        $duplicate_url = $this->build_duplicate_url((int) $post->ID);
-        echo '<a href="' . esc_url($duplicate_url) . '" class="button button-secondary">' . esc_html__('Duplicate Quote', 'the-artist') . '</a>';
+        echo '<div id="tah-quote-editor-header-panels" class="tah-quote-editor-panels tah-quote-editor-header-panels"></div>';
         echo '</div>';
         echo '</div>';
 
         echo '<div class="tah-quote-editor-layout">';
 
         echo '<section class="tah-quote-editor-main">';
-        echo '<div id="tah-quote-editor-main-pricing" class="tah-quote-editor-slot"></div>';
+        echo '<div id="tah-quote-editor-main-panels" class="tah-quote-editor-panels"></div>';
         echo '</section>';
 
         echo '<aside class="tah-quote-editor-sidebar">';
-        echo '<div id="tah-quote-editor-sidebar-options" class="tah-quote-editor-slot"></div>';
-        echo '<div id="tah-quote-editor-sidebar-sections" class="tah-quote-editor-slot"></div>';
-        echo '<section id="tah-quote-editor-sidebar-notes" class="tah-card tah-quote-editor-notes">';
-        echo '<h3 class="tah-sidebar-heading">' . esc_html__('Admin Notes', 'the-artist') . '</h3>';
-        echo '<p class="description">' . esc_html__('Internal only. Never shown on customer quote pages.', 'the-artist') . '</p>';
-        wp_nonce_field(self::NOTES_NONCE_ACTION, self::NOTES_NONCE_NAME);
-        echo '<textarea name="' . esc_attr(self::NOTES_META_KEY) . '" class="widefat" rows="6" placeholder="' . esc_attr__('Add private notes for your team...', 'the-artist') . '">' . esc_textarea($admin_notes) . '</textarea>';
-        echo '</section>';
-        echo '<div id="tah-quote-editor-sidebar-publish" class="tah-quote-editor-slot"></div>';
+        echo '<div id="tah-quote-editor-sidebar-panels" class="tah-quote-editor-panels"></div>';
         echo '</aside>';
 
         echo '</div>'; // .tah-quote-editor-layout
@@ -170,6 +167,7 @@ final class TAH_Quote_Edit_Screen
         );
 
         wp_enqueue_script('jquery');
+        wp_enqueue_script('jquery-ui-sortable');
         wp_add_inline_script('jquery', $this->relocation_script());
     }
 
@@ -181,12 +179,13 @@ final class TAH_Quote_Edit_Screen
         return <<<'JS'
 jQuery(function ($) {
     var map = [
-        { id: 'tfa_metabox', target: '#tah-quote-editor-header-customer' },
-        { id: 'tah_quote_options', target: '#tah-quote-editor-sidebar-options' },
-        { id: 'tah_trade_single_select', target: '#tah-quote-editor-sidebar-options' },
-        { id: 'tah_quote_pricing', target: '#tah-quote-editor-main-pricing' },
-        { id: 'tah_quote_sections', target: '#tah-quote-editor-sidebar-sections' },
-        { id: 'submitdiv', target: '#tah-quote-editor-sidebar-publish' }
+        { id: 'tfa_metabox', target: '#tah-quote-editor-header-panels' },
+        { id: 'tah_quote_options', target: '#tah-quote-editor-header-panels' },
+        { id: 'tah_trade_single_select', target: '#tah-quote-editor-header-panels' },
+        { id: 'tah_quote_pricing', target: '#tah-quote-editor-main-panels' },
+        { id: 'tah_quote_sections', target: '#tah-quote-editor-sidebar-panels' },
+        { id: 'tah_quote_admin_notes', target: '#tah-quote-editor-sidebar-panels' },
+        { id: 'submitdiv', target: '#tah-quote-editor-sidebar-panels' }
     ];
 
     map.forEach(function (entry) {
@@ -200,6 +199,21 @@ jQuery(function ($) {
         $panel.addClass('tah-quote-editor-panel');
         $target.append($panel);
     });
+
+    var $sortAreas = $('#tah-quote-editor-header-panels, #tah-quote-editor-main-panels, #tah-quote-editor-sidebar-panels');
+    $sortAreas.sortable({
+        connectWith: '.tah-quote-editor-panels',
+        items: '> .postbox',
+        handle: '.hndle',
+        placeholder: 'tah-editor-panel-placeholder',
+        forcePlaceholderSize: true,
+        tolerance: 'pointer'
+    });
+
+    var $submitTitle = $('#submitdiv .hndle').first();
+    if ($submitTitle.length) {
+        $submitTitle.text('Actions');
+    }
 });
 JS;
     }
@@ -265,6 +279,37 @@ JS;
         echo '<option value="insurance" ' . selected($quote_format, 'insurance', false) . '>' . esc_html__('Insurance', 'the-artist') . '</option>';
         echo '</select>';
         echo '</p>';
+        echo '</div>';
+    }
+
+    /**
+     * @param WP_Post $post
+     */
+    public function render_admin_notes_metabox($post): void
+    {
+        if (!$post instanceof WP_Post || $post->post_type !== self::POST_TYPE) {
+            return;
+        }
+
+        $admin_notes = (string) get_post_meta((int) $post->ID, self::NOTES_META_KEY, true);
+
+        wp_nonce_field(self::NOTES_NONCE_ACTION, self::NOTES_NONCE_NAME);
+        echo '<p class="description">' . esc_html__('Internal only. Never shown on customer quote pages.', 'the-artist') . '</p>';
+        echo '<textarea name="' . esc_attr(self::NOTES_META_KEY) . '" class="widefat" rows="6" placeholder="' . esc_attr__('Add private notes for your team...', 'the-artist') . '">' . esc_textarea($admin_notes) . '</textarea>';
+    }
+
+    /**
+     * @param WP_Post $post
+     */
+    public function render_duplicate_submitbox_action($post): void
+    {
+        if (!$post instanceof WP_Post || $post->post_type !== self::POST_TYPE) {
+            return;
+        }
+
+        $duplicate_url = $this->build_duplicate_url((int) $post->ID);
+        echo '<div class="misc-pub-section tah-duplicate-quote-action">';
+        echo '<a href="' . esc_url($duplicate_url) . '" class="button button-secondary button-small">' . esc_html__('Duplicate Quote', 'the-artist') . '</a>';
         echo '</div>';
     }
 
