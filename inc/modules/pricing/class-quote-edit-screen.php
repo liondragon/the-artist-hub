@@ -99,8 +99,10 @@ final class TAH_Quote_Edit_Screen
         $view_tracking_summary = $this->get_view_tracking_summary((int) $post->ID);
         echo '<div id="tah-quote-editor">';
 
-        echo '<div class="tah-quote-editor-header tah-card">';
-        echo '<div class="tah-quote-editor-header-main">';
+        // Standard WP Postbox Markup for Quote Information
+        echo '<div id="tah-quote-information" class="postbox">';
+        echo '<div class="postbox-header">';
+        echo '<h2 class="hndle">';
         echo '<div class="tah-quote-editor-header-row">';
         echo '<strong class="tah-quote-editor-customer-name">' . esc_html($customer_name !== '' ? $customer_name : __('Quote Information', 'the-artist')) . '</strong>';
         if ($customer_address !== '') {
@@ -117,9 +119,20 @@ final class TAH_Quote_Edit_Screen
             echo '<span class="tah-quote-editor-view-summary">' . esc_html($view_tracking_summary) . '</span>';
             echo '</div>';
         }
-        echo '<div id="tah-quote-editor-header-panels" class="tah-quote-editor-panels tah-quote-editor-header-panels"></div>';
-        echo '</div>';
+        echo '</h2>';
 
+        // Standard WP Toggle Button
+        echo '<div class="handlediv" aria-hidden="true">';
+        echo '<span class="toggle-indicator" aria-hidden="true"></span>';
+        echo '</div>';
+        echo '</div>'; // .postbox-header
+
+        echo '<div class="inside">';
+        echo '<div id="tah-quote-editor-header-panels" class="tah-quote-editor-panels tah-quote-editor-header-panels"></div>';
+        echo '</div>'; // .inside
+        echo '</div>'; // .postbox
+
+        // Action Buttons (kept outside postbox)
         echo '<div class="tah-quote-editor-header-actions">';
         echo '<div class="tah-split-button" id="tah-quote-actions">';
         echo '<button type="button" class="button button-primary" id="tah-action-primary">' . esc_html__('Publish', 'the-artist') . '</button>';
@@ -133,7 +146,6 @@ final class TAH_Quote_Edit_Screen
         echo '<button type="button" class="tah-split-item" data-action="save_draft">' . esc_html__('Save Draft', 'the-artist') . '</button>';
         echo '<button type="button" class="tah-split-item tah-split-item-danger" data-action="delete">' . esc_html__('Move to Trash', 'the-artist') . '</button>';
         echo '<button type="button" class="tah-split-item" data-action="email" disabled>' . esc_html__('Email (Soon)', 'the-artist') . '</button>';
-        echo '</div>';
         echo '</div>';
         echo '</div>';
         echo '</div>';
@@ -296,34 +308,55 @@ jQuery(function ($) {
         });
     }
 
-    // Prep main editor (postdivrich) to look like a card
+    // Prep main editor (postdivrich) to look like a postbox but behave custom
     var $editor = $('#postdivrich');
     if ($editor.length && !$('#tah-editor-wrapper').length) {
-        $editor.wrap('<div id="tah-editor-wrapper" class="postbox tah-card"></div>');
+        // Use standard .postbox for styling, but .tah-postbox-custom-toggle to mark for our logic
+        $editor.wrap('<div id="tah-editor-wrapper" class="postbox tah-postbox-custom-toggle"></div>');
         var $wrapper = $('#tah-editor-wrapper');
         
-        $wrapper.prepend('<div class="tah-postbox-header"><h2 class="tah-hndle">Note to a Customer</h2><button type="button" class="tah-toggle-btn" aria-expanded="true"><span class="screen-reader-text">Toggle panel: Note to a Customer</span><span class="toggle-indicator" aria-hidden="true"></span></button></div>');
+        // Standard-looking header, but using custom trigger button instead of .handlediv
+        $wrapper.prepend(
+            '<div class="postbox-header">' +
+                '<h2 class="hndle">Note to a Customer</h2>' +
+                '<button type="button" class="tah-toggle-trigger" aria-expanded="true">' +
+                    '<span class="screen-reader-text">Toggle panel: Note to a Customer</span>' +
+                    '<span class="toggle-indicator" aria-hidden="true"></span>' +
+                '</button>' +
+            '</div>'
+        );
         
-        // Wrap editor content in body for padding/hiding
-        $editor.wrap('<div class="tah-card-body"></div>');
+        // Wrap editor content in .inside for standard padding/hiding
+        $editor.wrap('<div class="inside"></div>');
         
-        // Ensure inner editor doesn't have conflicting classes if it had them
+        // Ensure inner editor doesn't have conflicting classes
         $editor.removeClass('postbox');
 
-        // Manual toggle handler with custom classes to avoid WP core postbox.js/sortable conflicts
-        $wrapper.on('click', '.tah-postbox-header', function(e) {
-            // Ignore if clicking distinct controls inside header
-            if ($(e.target).closest('a, button, input').length && !$(e.target).closest('.tah-toggle-btn').length) {
-                return;
+        // EVENT BLOCKING: Prevent WP postbox.js from seeing clicks on this specific header
+        $wrapper.on('click', '.postbox-header', function(e) {
+            // Check if it's NOT our custom button (which needs to work)
+            if (!$(e.target).closest('.tah-toggle-trigger').length) {
+                e.stopPropagation();
+                e.preventDefault();
             }
+        });
+
+        // CUSTOM TOGGLE: Handle our specific button
+        $wrapper.on('click', '.tah-toggle-trigger', function(e) {
             e.preventDefault();
+            e.stopPropagation(); // Stop bubbling so header click handler doesn't see it either (cleaner)
             
             $wrapper.toggleClass('closed');
             var isClosed = $wrapper.hasClass('closed');
-            $wrapper.find('.tah-toggle-btn').attr('aria-expanded', (!isClosed).toString());
+            $(this).attr('aria-expanded', (!isClosed).toString());
             
-            // Trigger resize to fix TinyMCE layout glitches
+            // Fix TinyMCE/Editor layout glitches
+            // 1. Immediate resize
             $(window).trigger('resize');
+            // 2. Deferred resize (after transition matches/renders)
+            setTimeout(function() {
+                $(window).trigger('resize');
+            }, 150);
         });
     }
 

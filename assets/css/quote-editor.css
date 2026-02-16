@@ -364,71 +364,53 @@ body.tah-quote-editor-enabled .tah-split-item-danger:focus {
     z-index: 3;
 }
 
-#tah-quote-editor .postbox.closed .hndle {
-    background: transparent !important;
-    border-bottom: 0 !important;
-    box-shadow: none !important;
-    margin: 0 !important;
+/* =========================================================================
+   SCOPED SKIN: "The Artist Hub" Postbox Theme
+   Target: body.tah-quote-editor-enabled #tah-quote-editor
+   Strategy: "Visual Stacking" - apply our look to standard WP markup.
+   ========================================================================= */
+
+/* 1. Base Postbox Structure */
+body.tah-quote-editor-enabled #tah-quote-editor .postbox {
+    background: #fff;
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    /* TAH card radius */
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+    margin-bottom: 20px;
 }
 
-#tah-quote-editor .postbox.closed .postbox-header {
-    background: transparent !important;
-    border-bottom: 0 !important;
-    box-shadow: none !important;
-}
-
-#tah-quote-editor .postbox.closed {
-    border-bottom: 1px solid #d0d5dd !important;
-}
-
-/* Ensure wrapper handlediv is visible */
-#tah-quote-editor .postbox.closed .handlediv {
-    display: block !important;
-}
-
-/* Hide body when closed */
-#tah-quote-editor .postbox.closed .tah-card-body {
-    display: none !important;
-}
-
-/* Ensure editor tools don't interfere when closed */
-#tah-quote-editor .postbox.closed #wp-content-editor-tools {
-    display: none !important;
-}
-
-/* Custom Header Styling to avoid JS conflicts */
-/* Centralized Metabox Styling */
-
-/* Header Container */
-#tah-quote-editor .tah-postbox-header,
-#tah-quote-editor .postbox .postbox-header {
+/* 2. Header Container */
+body.tah-quote-editor-enabled #tah-quote-editor .postbox .postbox-header {
+    background: #fff;
+    /* Ensure white, not WP gray */
     border-bottom: 1px solid #d0d5dd;
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0 12px;
-    min-height: 44px;
+    min-height: 48px;
+    /* Consistent height */
     cursor: pointer;
-    background: #fff;
-    /* Ensure background is white */
+    /* Click to toggle */
 }
 
-/* Header Title */
-#tah-quote-editor .tah-hndle,
-#tah-quote-editor .postbox .hndle {
+/* 3. Header Title */
+body.tah-quote-editor-enabled #tah-quote-editor .postbox .hndle {
     font-size: 14px;
     font-weight: 600;
+    color: #101828;
+    /* TAH ink */
     margin: 0;
     padding: 0;
     line-height: 1.4;
     cursor: inherit;
     flex-grow: 1;
-    /* Allow title to take up available space */
 }
 
-/* Toggle Button Container */
-#tah-quote-editor .tah-toggle-btn,
-#tah-quote-editor .postbox .handlediv {
+/* 4. Toggle Buttons (Standard .handlediv + Custom .tah-toggle-trigger) */
+body.tah-quote-editor-enabled #tah-quote-editor .postbox .handlediv,
+body.tah-quote-editor-enabled #tah-quote-editor .postbox .tah-toggle-trigger {
     background: transparent;
     border: none;
     cursor: pointer;
@@ -438,40 +420,68 @@ body.tah-quote-editor-enabled .tah-split-item-danger:focus {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #1d2327;
+    color: #667085;
+    /* TAH gray */
     float: none;
     /* Override WP float */
     margin: 0;
     /* Override WP margin */
+    /* Ensure icon size matches */
+    font: normal 20px/1 dashicons;
 }
 
-#tah-quote-editor .tah-toggle-btn:focus,
-#tah-quote-editor .postbox .handlediv:focus {
+body.tah-quote-editor-enabled #tah-quote-editor .postbox .handlediv:hover,
+body.tah-quote-editor-enabled #tah-quote-editor .postbox .tah-toggle-trigger:hover {
+    color: #1d2327;
+    background: #f2f4f7;
+    /* Subtle hover bg */
+    border-radius: 4px;
+}
+
+body.tah-quote-editor-enabled #tah-quote-editor .postbox .handlediv:focus,
+body.tah-quote-editor-enabled #tah-quote-editor .postbox .tah-toggle-trigger:focus {
     box-shadow: none;
-    outline: 1px solid #2271b1;
+    outline: 2px solid #2271b1;
+    outline-offset: -2px;
 }
 
-/* Toggle Icon */
-#tah-quote-editor .tah-toggle-btn .toggle-indicator::before,
-#tah-quote-editor .postbox .handlediv .toggle-indicator::before {
+/* 5. Toggle Icons */
+/* Standard */
+body.tah-quote-editor-enabled #tah-quote-editor .postbox .handlediv .toggle-indicator::before {
     content: "\f142";
     /* dashicons-arrow-up */
-    font: normal 20px/1 dashicons;
-    speak: never;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
 }
 
-/* Closed State */
-#tah-quote-editor .postbox.closed .tah-postbox-header,
-#tah-quote-editor .postbox.closed .postbox-header {
+/* Custom (Note-to-Customer) */
+body.tah-quote-editor-enabled #tah-quote-editor .postbox .tah-toggle-trigger .toggle-indicator::before {
+    content: "\f142";
+    /* dashicons-arrow-up (manual) */
+    font-family: dashicons;
+}
+
+/* 6. Collapse Logic (Precise Scoping) */
+/* Hide content when closed */
+body.tah-quote-editor-enabled #tah-quote-editor .postbox.closed>.inside {
+    display: none;
+}
+
+/* Closed Header Styles */
+body.tah-quote-editor-enabled #tah-quote-editor .postbox.closed .postbox-header {
     border-bottom: none;
+    /* Seamless card when closed */
 }
 
-#tah-quote-editor .postbox.closed .tah-toggle-btn .toggle-indicator::before,
-#tah-quote-editor .postbox.closed .handlediv .toggle-indicator::before {
+/* Rotate arrows when closed */
+body.tah-quote-editor-enabled #tah-quote-editor .postbox.closed .handlediv .toggle-indicator::before,
+body.tah-quote-editor-enabled #tah-quote-editor .postbox.closed .tah-toggle-trigger .toggle-indicator::before {
     content: "\f140";
     /* dashicons-arrow-down */
+}
+
+/* 7. Editor Tools Fix */
+/* Ensure WP editor tools don't float around when parent is closed */
+body.tah-quote-editor-enabled #tah-quote-editor .postbox.closed #wp-content-editor-tools {
+    display: none;
 }
 
 #tah-quote-editor #tah-quote-editor-header-panels .postbox {
