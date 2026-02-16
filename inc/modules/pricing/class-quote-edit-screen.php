@@ -111,6 +111,7 @@ final class TAH_Quote_Edit_Screen
         echo '<span class="tah-badge tah-badge--accent">' . esc_html(sprintf(__('Format: %s', 'the-artist'), ucfirst($quote_format))) . '</span>';
         echo '<span class="tah-badge tah-badge--neutral">' . esc_html(sprintf(__('Status: %s', 'the-artist'), $status_label)) . '</span>';
         echo '<span class="tah-badge tah-badge--neutral">' . esc_html(sprintf(__('Trade: %s', 'the-artist'), $trade_name)) . '</span>';
+        echo '<button type="button" id="tah-sidebar-toggle" class="button button-secondary tah-sidebar-toggle" aria-pressed="false">' . esc_html__('Hide Sidebar', 'the-artist') . '</button>';
         echo '</div>';
         if ($view_tracking_summary !== '') {
             echo '<div class="tah-quote-editor-header-row">';
@@ -168,6 +169,7 @@ final class TAH_Quote_Edit_Screen
 
         wp_enqueue_script('jquery');
         wp_enqueue_script('jquery-ui-sortable');
+        wp_enqueue_script('jquery-ui-resizable');
         wp_add_inline_script('jquery', $this->relocation_script());
     }
 
@@ -178,6 +180,109 @@ final class TAH_Quote_Edit_Screen
     {
         return <<<'JS'
 jQuery(function ($) {
+    var STORAGE_PREFIX = 'tah_quote_editor_';
+
+    function spanClassFor(value) {
+        var v = parseInt(String(value || '12'), 10) || 12;
+        if (v === 4) return 'tah-span-4';
+        if (v === 6) return 'tah-span-6';
+        if (v === 8) return 'tah-span-8';
+        return 'tah-span-12';
+    }
+
+    function applyPanelSpan($panel, span) {
+        $panel.removeClass('tah-span-12 tah-span-8 tah-span-6 tah-span-4').addClass(spanClassFor(span));
+    }
+
+    function closestSpanFromWidth(widthPx, containerWidthPx) {
+        var container = parseFloat(containerWidthPx || 0);
+        var width = parseFloat(widthPx || 0);
+        if (!Number.isFinite(container) || container <= 0 || !Number.isFinite(width) || width <= 0) {
+            return 12;
+        }
+
+        if (width >= (container - 4)) {
+            return 12;
+        }
+
+        var candidates = [4, 6, 8, 12];
+        var best = 12;
+        var bestDelta = Infinity;
+        candidates.forEach(function (span) {
+            var spanWidth = container * (span / 12);
+            var delta = Math.abs(width - spanWidth);
+            if (delta < bestDelta) {
+                bestDelta = delta;
+                best = span;
+            }
+        });
+        return best;
+    }
+
+    function applySavedPanelSpan($panel) {
+        var id = String($panel.attr('id') || '');
+        if (!id) {
+            return;
+        }
+
+        var key = STORAGE_PREFIX + 'panel_span_' + id;
+        var saved = window.localStorage ? window.localStorage.getItem(key) : null;
+        applyPanelSpan($panel, saved ? saved : 12);
+    }
+
+    function initPanelResizing($panel, helpers) {
+        if (!$panel || !$panel.length || !$.fn.resizable) {
+            return;
+        }
+
+        if ($panel.data('tahResizableAttached')) {
+            return;
+        }
+        $panel.data('tahResizableAttached', true);
+
+        $panel.resizable({
+            handles: 'e',
+            minWidth: 220,
+            start: function () {
+                $panel.addClass('tah-is-resizing');
+                var $container = $panel.closest('.tah-quote-editor-panels');
+                var containerWidth = $container.length ? $container.width() : 0;
+                if (containerWidth > 0) {
+                    $panel.resizable('option', 'maxWidth', containerWidth);
+                    $panel.resizable('option', 'containment', $container);
+                }
+            },
+            stop: function (event, ui) {
+                $panel.removeClass('tah-is-resizing');
+
+                var id = String($panel.attr('id') || '');
+                var $container = $panel.closest('.tah-quote-editor-panels');
+                var containerWidth = $container.length ? $container.width() : 0;
+                var nextSpan = closestSpanFromWidth(ui.size.width, containerWidth);
+                if (id === 'tah_quote_pricing' && containerWidth > 0 && ui.size.width >= (containerWidth - 8)) {
+                    nextSpan = 12;
+                }
+
+                // Avoid fighting the CSS grid; snap by span classes, then clear inline width.
+                applyPanelSpan($panel, nextSpan);
+                $panel.css({ width: '', height: '' });
+
+                if (id && window.localStorage) {
+                    window.localStorage.setItem(STORAGE_PREFIX + 'panel_span_' + id, String(nextSpan));
+                }
+
+                if (helpers && typeof helpers.setSidebarCollapsed === 'function') {
+                    if (id === 'tah_quote_pricing' && nextSpan === 12) {
+                        helpers.setSidebarCollapsed(true);
+                        setTimeout(function () {
+                            applyPanelSpan($panel, 12);
+                        }, 0);
+                    }
+                }
+            }
+        });
+    }
+
     var map = [
         { id: 'tfa_metabox', target: '#tah-quote-editor-header-panels' },
         { id: 'tah_quote_options', target: '#tah-quote-editor-header-panels' },
@@ -198,6 +303,7 @@ jQuery(function ($) {
 
         $panel.addClass('tah-quote-editor-panel');
         $target.append($panel);
+        applySavedPanelSpan($panel);
     });
 
     var $sortAreas = $('#tah-quote-editor-header-panels, #tah-quote-editor-main-panels, #tah-quote-editor-sidebar-panels');
@@ -214,6 +320,83 @@ jQuery(function ($) {
     if ($submitTitle.length) {
         $submitTitle.text('Actions');
     }
+
+    // Sidebar resizing (affects how much room Pricing Table has).
+    var $editor = $('#tah-quote-editor');
+    var $layout = $editor.find('.tah-quote-editor-layout').first();
+    var $sidebar = $layout.find('.tah-quote-editor-sidebar').first();
+
+    function setSidebarWidth(px) {
+        var w = parseInt(String(px || '340'), 10) || 340;
+        if (w < 260) w = 260;
+        if (w > 900) w = 900;
+        $editor[0].style.setProperty('--tah-sidebar-width', w + 'px');
+        if (window.localStorage) {
+            window.localStorage.setItem(STORAGE_PREFIX + 'sidebar_width', String(w));
+        }
+    }
+
+    function setSidebarCollapsed(collapsed) {
+        var isCollapsed = !!collapsed;
+        $editor.toggleClass('tah-sidebar-collapsed', isCollapsed);
+        if (window.localStorage) {
+            window.localStorage.setItem(STORAGE_PREFIX + 'sidebar_collapsed', isCollapsed ? '1' : '0');
+        }
+        var $toggle = $('#tah-sidebar-toggle');
+        if ($toggle.length) {
+            $toggle.text(isCollapsed ? 'Show Sidebar' : 'Hide Sidebar');
+            $toggle.attr('aria-pressed', isCollapsed ? 'true' : 'false');
+        }
+    }
+
+    if ($editor.length && $sidebar.length && $.fn.resizable) {
+        var savedWidth = window.localStorage ? window.localStorage.getItem(STORAGE_PREFIX + 'sidebar_width') : null;
+        var savedCollapsed = window.localStorage ? window.localStorage.getItem(STORAGE_PREFIX + 'sidebar_collapsed') : null;
+        if (savedWidth) {
+            setSidebarWidth(savedWidth);
+        }
+        if (savedCollapsed === '1') {
+            setSidebarCollapsed(true);
+        }
+
+        $sidebar.resizable({
+            handles: 'w',
+            minWidth: 260,
+            maxWidth: 900,
+            resize: function (event, ui) {
+                setSidebarWidth(ui.size.width);
+            },
+            stop: function (event, ui) {
+                setSidebarWidth(ui.size.width);
+            }
+        });
+
+        $layout.on('dblclick', '.ui-resizable-w', function (event) {
+            event.preventDefault();
+            setSidebarCollapsed(!$editor.hasClass('tah-sidebar-collapsed'));
+        });
+    }
+
+    // Rebind panel resizing with sidebar helpers once available.
+    map.forEach(function (entry) {
+        var $panel = $('#' + entry.id);
+        if ($panel.length) {
+            initPanelResizing($panel, { setSidebarCollapsed: setSidebarCollapsed });
+        }
+    });
+
+    $('#tah-sidebar-toggle').on('click', function () {
+        setSidebarCollapsed(!$editor.hasClass('tah-sidebar-collapsed'));
+    });
+
+    $(document).on('postbox-toggled', function (event, postbox) {
+        if (!postbox) {
+            return;
+        }
+
+        var $postbox = $(postbox);
+        $postbox.css({ height: '' });
+    });
 });
 JS;
     }

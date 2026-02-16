@@ -34,6 +34,10 @@ body.tah-quote-editor-enabled .wrap h1.wp-heading-inline {
     gap: 8px;
 }
 
+#tah-quote-editor .tah-sidebar-toggle {
+    margin-left: auto;
+}
+
 #tah-quote-editor .tah-quote-editor-view-summary {
     color: #475467;
     font-size: 12px;
@@ -67,7 +71,7 @@ body.tah-quote-editor-enabled .wrap h1.wp-heading-inline {
 #tah-quote-editor .tah-quote-editor-layout {
     display: grid;
     gap: 16px;
-    grid-template-columns: minmax(0, 1fr) 340px;
+    grid-template-columns: minmax(0, 1fr) var(--tah-sidebar-width, 340px);
 }
 
 #tah-quote-editor .tah-quote-editor-main,
@@ -75,10 +79,45 @@ body.tah-quote-editor-enabled .wrap h1.wp-heading-inline {
     min-width: 0;
 }
 
+#tah-quote-editor.tah-sidebar-collapsed .tah-quote-editor-layout {
+    grid-template-columns: 1fr 0;
+    gap: 0;
+}
+
+#tah-quote-editor.tah-sidebar-collapsed .tah-quote-editor-sidebar {
+    display: none;
+}
+
 #tah-quote-editor .tah-quote-editor-sidebar {
     display: flex;
     flex-direction: column;
     gap: 16px;
+}
+
+#tah-quote-editor .tah-quote-editor-sidebar.ui-resizable {
+    position: relative;
+}
+
+#tah-quote-editor .tah-quote-editor-sidebar .ui-resizable-w {
+    cursor: col-resize;
+    height: 100%;
+    left: -6px;
+    position: absolute;
+    top: 0;
+    width: 12px;
+}
+
+#tah-quote-editor .tah-quote-editor-sidebar .ui-resizable-w::before {
+    background: rgba(148, 163, 184, 0.35);
+    border-radius: 999px;
+    content: '';
+    display: none;
+    height: 44px;
+    left: 50%;
+    position: absolute;
+    top: 28px;
+    transform: translateX(-50%);
+    width: 2px;
 }
 
 #tah-quote-editor .tah-quote-editor-notes {
@@ -96,9 +135,10 @@ body.tah-quote-editor-enabled .wrap h1.wp-heading-inline {
 }
 
 #tah-quote-editor .tah-quote-editor-panels {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    align-items: start;
     gap: 16px;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
     min-height: 48px;
 }
 
@@ -106,8 +146,100 @@ body.tah-quote-editor-enabled .wrap h1.wp-heading-inline {
     margin: 0;
 }
 
+#tah-quote-editor .tah-quote-editor-panels > .postbox {
+    grid-column: span 12;
+}
+
+#tah-quote-editor .tah-quote-editor-panels > .postbox.tah-span-12 {
+    grid-column: span 12;
+}
+
+#tah-quote-editor .tah-quote-editor-panels > .postbox.tah-span-6 {
+    grid-column: span 6;
+}
+
+#tah-quote-editor .tah-quote-editor-panels > .postbox.tah-span-8 {
+    grid-column: span 8;
+}
+
+#tah-quote-editor .tah-quote-editor-panels > .postbox.tah-span-4 {
+    grid-column: span 4;
+}
+
 #tah-quote-editor .postbox {
+    align-self: start;
     border-radius: 8px;
+    overflow: hidden;
+}
+
+#tah-quote-editor .postbox.closed .hndle {
+    border-radius: 8px;
+}
+
+#tah-quote-editor .postbox.ui-resizable {
+    position: relative;
+}
+
+#tah-quote-editor .postbox .ui-resizable-e {
+    cursor: col-resize;
+    height: 100%;
+    position: absolute;
+    right: -6px;
+    top: 0;
+    width: 12px;
+}
+
+#tah-quote-editor .postbox .ui-resizable-e::before {
+    background: rgba(148, 163, 184, 0.35);
+    border-radius: 999px;
+    content: '';
+    display: none;
+    height: 44px;
+    left: 50%;
+    position: absolute;
+    top: 28px;
+    transform: translateX(-50%);
+    width: 2px;
+}
+
+ 
+#tah-quote-editor .postbox.closed {
+    height: auto !important;
+}
+
+#tah-quote-editor .postbox .ui-resizable-w,
+#tah-quote-editor .postbox .ui-resizable-s,
+#tah-quote-editor .postbox .ui-resizable-n,
+#tah-quote-editor .postbox .ui-resizable-sw,
+#tah-quote-editor .postbox .ui-resizable-nw,
+#tah-quote-editor .postbox .ui-resizable-ne,
+#tah-quote-editor .postbox .ui-resizable-se {
+    display: none;
+}
+
+#tah-quote-editor .postbox.tah-is-resizing {
+    z-index: 3;
+}
+
+#tah-quote-editor .postbox.closed .hndle {
+    background: transparent !important;
+    border-bottom: 0 !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+}
+
+#tah-quote-editor .postbox.closed .postbox-header {
+    background: transparent !important;
+    border-bottom: 0 !important;
+    box-shadow: none !important;
+}
+
+#tah-quote-editor .postbox.closed {
+    border-bottom: 1px solid #d0d5dd !important;
+}
+
+#tah-quote-editor .postbox.closed .handlediv {
+    display: none !important;
 }
 
 #tah-quote-editor #tah-quote-editor-header-panels .postbox {
