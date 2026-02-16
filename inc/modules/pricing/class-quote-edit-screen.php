@@ -42,7 +42,7 @@ final class TAH_Quote_Edit_Screen
         }
 
         remove_meta_box('slugdiv', self::POST_TYPE, 'normal');
-        remove_meta_box('postdivrich', self::POST_TYPE, 'normal');
+        // remove_meta_box('postdivrich', self::POST_TYPE, 'normal');
         remove_meta_box('postexcerpt', self::POST_TYPE, 'normal');
         remove_meta_box('postcustom', self::POST_TYPE, 'normal');
         remove_meta_box('commentstatusdiv', self::POST_TYPE, 'normal');
@@ -296,6 +296,20 @@ jQuery(function ($) {
         });
     }
 
+    // Prep main editor (postdivrich) to look like a card
+    var $editor = $('#postdivrich');
+    if ($editor.length) {
+        $editor.addClass('postbox tah-card');
+        if (!$editor.find('.postbox-header, .hndle').length) {
+             $editor.prepend('<div class="postbox-header"><h2 class="hndle ui-sortable-handle">Note to a Customer</h2></div>');
+        }
+        // Wrap editor content in a body container for consistent padding if needed, 
+        // strictly speaking WP editor handles its own padding, but let's ensure structure.
+        if (!$editor.find('.tah-card-body').length) {
+             $editor.children(':not(.postbox-header)').wrapAll('<div class="tah-card-body"></div>');
+        }
+    }
+
     var map = [
         { id: 'tfa_metabox', target: '#tah-quote-editor-header-panels' },
         { id: 'tah_quote_options', target: '#tah-quote-editor-header-panels' },
@@ -303,7 +317,8 @@ jQuery(function ($) {
         { id: 'tah_quote_pricing', target: '#tah-quote-editor-main-panels' },
         { id: 'tah_quote_sections', target: '#tah-quote-editor-main-panels' },
         { id: 'tah_quote_admin_notes', target: '#tah-quote-editor-main-panels' },
-        { id: 'submitdiv', target: '#tah-quote-editor-main-panels' }
+        { id: 'submitdiv', target: '#tah-quote-editor-main-panels' },
+        { id: 'postdivrich', target: '#tah-quote-editor-main-panels' }
     ];
 
     map.forEach(function (entry) {

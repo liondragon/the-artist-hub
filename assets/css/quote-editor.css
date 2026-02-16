@@ -825,3 +825,9 @@ body.tah-quote-editor-enabled #screen-meta {
         grid-template-columns: 1fr;
     }
 }
+
+/* Remove background from main editor tools */
+#wp-content-editor-tools {
+    background: transparent !important;
+    padding-top: 0;
+}
