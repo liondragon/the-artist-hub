@@ -298,16 +298,33 @@ jQuery(function ($) {
 
     // Prep main editor (postdivrich) to look like a card
     var $editor = $('#postdivrich');
-    if ($editor.length) {
-        $editor.addClass('postbox tah-card');
-        if (!$editor.find('.postbox-header, .hndle').length) {
-             $editor.prepend('<div class="postbox-header"><h2 class="hndle ui-sortable-handle">Note to a Customer</h2></div>');
-        }
-        // Wrap editor content in a body container for consistent padding if needed, 
-        // strictly speaking WP editor handles its own padding, but let's ensure structure.
-        if (!$editor.find('.tah-card-body').length) {
-             $editor.children(':not(.postbox-header)').wrapAll('<div class="tah-card-body"></div>');
-        }
+    if ($editor.length && !$('#tah-editor-wrapper').length) {
+        $editor.wrap('<div id="tah-editor-wrapper" class="postbox tah-card"></div>');
+        var $wrapper = $('#tah-editor-wrapper');
+        
+        $wrapper.prepend('<div class="tah-postbox-header"><h2 class="tah-hndle">Note to a Customer</h2><button type="button" class="tah-toggle-btn" aria-expanded="true"><span class="screen-reader-text">Toggle panel: Note to a Customer</span><span class="toggle-indicator" aria-hidden="true"></span></button></div>');
+        
+        // Wrap editor content in body for padding/hiding
+        $editor.wrap('<div class="tah-card-body"></div>');
+        
+        // Ensure inner editor doesn't have conflicting classes if it had them
+        $editor.removeClass('postbox');
+
+        // Manual toggle handler with custom classes to avoid WP core postbox.js/sortable conflicts
+        $wrapper.on('click', '.tah-postbox-header', function(e) {
+            // Ignore if clicking distinct controls inside header
+            if ($(e.target).closest('a, button, input').length && !$(e.target).closest('.tah-toggle-btn').length) {
+                return;
+            }
+            e.preventDefault();
+            
+            $wrapper.toggleClass('closed');
+            var isClosed = $wrapper.hasClass('closed');
+            $wrapper.find('.tah-toggle-btn').attr('aria-expanded', (!isClosed).toString());
+            
+            // Trigger resize to fix TinyMCE layout glitches
+            $(window).trigger('resize');
+        });
     }
 
     var map = [
@@ -318,7 +335,7 @@ jQuery(function ($) {
         { id: 'tah_quote_sections', target: '#tah-quote-editor-main-panels' },
         { id: 'tah_quote_admin_notes', target: '#tah-quote-editor-main-panels' },
         { id: 'submitdiv', target: '#tah-quote-editor-main-panels' },
-        { id: 'postdivrich', target: '#tah-quote-editor-main-panels' }
+        { id: 'tah-editor-wrapper', target: '#tah-quote-editor-main-panels' }
     ];
 
     map.forEach(function (entry) {
@@ -338,7 +355,7 @@ jQuery(function ($) {
     $sortAreas.sortable({
         connectWith: '.tah-quote-editor-panels',
         items: '> .postbox',
-        handle: '.hndle',
+        handle: '.hndle, .tah-hndle',
         placeholder: 'tah-editor-panel-placeholder',
         forcePlaceholderSize: true,
         tolerance: 'pointer'
@@ -467,6 +484,13 @@ jQuery(function ($) {
         if ($screenMeta.length) {
             $footer.append($screenMeta);
         }
+    }
+
+    // Move quote actions to the top header area
+    var $headerActions = $('.tah-quote-editor-header-actions');
+    var $wpHeading = $('.wrap > h1.wp-heading-inline');
+    if ($headerActions.length && $wpHeading.length) {
+        $wpHeading.after($headerActions);
     }
 });
 JS;
