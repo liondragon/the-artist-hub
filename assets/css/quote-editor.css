@@ -58,12 +58,14 @@ body.tah-quote-editor-enabled #tah-screen-options-footer #screen-meta-links .sho
 
 body.tah-quote-editor-enabled #tah-screen-options-footer #screen-meta-links .show-settings::after {
     margin-top: 0;
-}
-
-/* Reverse arrow direction when collapsed so it suggests "opens upward". */
-body.tah-quote-editor-enabled #tah-screen-options-footer #screen-meta-links .show-settings[aria-expanded="false"]::after {
     transform: rotate(180deg);
 }
+
+/* When expanded, WP sets the arrow to UP, which we rotate to DOWN.
+   When collapsed, WP sets the arrow to DOWN, which we rotate to UP.
+   So we just need a constant rotation.
+   Remove the conditional rotation since we want 180deg always. */
+
 
 body.tah-quote-editor-enabled #screen-meta {
     position: absolute;
