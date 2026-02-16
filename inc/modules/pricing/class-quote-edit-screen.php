@@ -25,9 +25,9 @@ final class TAH_Quote_Edit_Screen
         add_action('add_meta_boxes_' . self::POST_TYPE, [$this, 'register_quote_options_metabox'], 100);
         add_action('add_meta_boxes_' . self::POST_TYPE, [$this, 'register_admin_notes_metabox'], 100);
         add_action('edit_form_after_title', [$this, 'render_editor_shell']);
+        add_action('edit_form_after_editor', [$this, 'render_screen_options_footer']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_assets']);
         add_filter('admin_body_class', [$this, 'add_body_class']);
-        add_action('post_submitbox_misc_actions', [$this, 'render_duplicate_submitbox_action']);
         add_action('admin_post_' . self::DUPLICATE_ACTION, [$this, 'handle_duplicate_quote']);
         add_action('save_post_' . self::POST_TYPE, [$this, 'save_admin_notes'], 40, 3);
     }
@@ -111,7 +111,6 @@ final class TAH_Quote_Edit_Screen
         echo '<span class="tah-badge tah-badge--accent">' . esc_html(sprintf(__('Format: %s', 'the-artist'), ucfirst($quote_format))) . '</span>';
         echo '<span class="tah-badge tah-badge--neutral">' . esc_html(sprintf(__('Status: %s', 'the-artist'), $status_label)) . '</span>';
         echo '<span class="tah-badge tah-badge--neutral">' . esc_html(sprintf(__('Trade: %s', 'the-artist'), $trade_name)) . '</span>';
-        echo '<button type="button" id="tah-sidebar-toggle" class="button button-secondary tah-sidebar-toggle" aria-pressed="false">' . esc_html__('Hide Sidebar', 'the-artist') . '</button>';
         echo '</div>';
         if ($view_tracking_summary !== '') {
             echo '<div class="tah-quote-editor-header-row">';
@@ -120,20 +119,43 @@ final class TAH_Quote_Edit_Screen
         }
         echo '<div id="tah-quote-editor-header-panels" class="tah-quote-editor-panels tah-quote-editor-header-panels"></div>';
         echo '</div>';
-        echo '</div>';
 
-        echo '<div class="tah-quote-editor-layout">';
+        echo '<div class="tah-quote-editor-header-actions">';
+        echo '<div class="tah-split-button" id="tah-quote-actions">';
+        echo '<button type="button" class="button button-primary" id="tah-action-primary">' . esc_html__('Publish', 'the-artist') . '</button>';
+        echo '<button type="button" class="button button-primary tah-split-toggle" id="tah-action-toggle" aria-haspopup="true" aria-expanded="false">';
+        echo '<span class="dashicons dashicons-arrow-down-alt2" aria-hidden="true"></span>';
+        echo '</button>';
+        echo '<div class="tah-split-menu" id="tah-action-menu" style="display:none;">';
+
+        $duplicate_url = $this->build_duplicate_url((int) $post->ID);
+        echo '<a class="tah-split-item" href="' . esc_url($duplicate_url) . '">' . esc_html__('Duplicate', 'the-artist') . '</a>';
+        echo '<button type="button" class="tah-split-item" data-action="save_draft">' . esc_html__('Save Draft', 'the-artist') . '</button>';
+        echo '<button type="button" class="tah-split-item tah-split-item-danger" data-action="delete">' . esc_html__('Move to Trash', 'the-artist') . '</button>';
+        echo '<button type="button" class="tah-split-item" data-action="email" disabled>' . esc_html__('Email (Soon)', 'the-artist') . '</button>';
+        echo '</div>';
+        echo '</div>';
+        echo '</div>';
+        echo '</div>';
 
         echo '<section class="tah-quote-editor-main">';
         echo '<div id="tah-quote-editor-main-panels" class="tah-quote-editor-panels"></div>';
         echo '</section>';
-
-        echo '<aside class="tah-quote-editor-sidebar">';
-        echo '<div id="tah-quote-editor-sidebar-panels" class="tah-quote-editor-panels"></div>';
-        echo '</aside>';
-
-        echo '</div>'; // .tah-quote-editor-layout
         echo '</div>'; // #tah-quote-editor
+    }
+
+    /**
+     * Render an in-flow footer slot for WP Screen Options.
+     *
+     * @param WP_Post $post
+     */
+    public function render_screen_options_footer($post): void
+    {
+        if (!$post instanceof WP_Post || $post->post_type !== self::POST_TYPE) {
+            return;
+        }
+
+        echo '<div id="tah-screen-options-footer" class="tah-screen-options-footer"></div>';
     }
 
     /**
@@ -270,15 +292,6 @@ jQuery(function ($) {
                 if (id && window.localStorage) {
                     window.localStorage.setItem(STORAGE_PREFIX + 'panel_span_' + id, String(nextSpan));
                 }
-
-                if (helpers && typeof helpers.setSidebarCollapsed === 'function') {
-                    if (id === 'tah_quote_pricing' && nextSpan === 12) {
-                        helpers.setSidebarCollapsed(true);
-                        setTimeout(function () {
-                            applyPanelSpan($panel, 12);
-                        }, 0);
-                    }
-                }
             }
         });
     }
@@ -288,9 +301,9 @@ jQuery(function ($) {
         { id: 'tah_quote_options', target: '#tah-quote-editor-header-panels' },
         { id: 'tah_trade_single_select', target: '#tah-quote-editor-header-panels' },
         { id: 'tah_quote_pricing', target: '#tah-quote-editor-main-panels' },
-        { id: 'tah_quote_sections', target: '#tah-quote-editor-sidebar-panels' },
-        { id: 'tah_quote_admin_notes', target: '#tah-quote-editor-sidebar-panels' },
-        { id: 'submitdiv', target: '#tah-quote-editor-sidebar-panels' }
+        { id: 'tah_quote_sections', target: '#tah-quote-editor-main-panels' },
+        { id: 'tah_quote_admin_notes', target: '#tah-quote-editor-main-panels' },
+        { id: 'submitdiv', target: '#tah-quote-editor-main-panels' }
     ];
 
     map.forEach(function (entry) {
@@ -306,7 +319,7 @@ jQuery(function ($) {
         applySavedPanelSpan($panel);
     });
 
-    var $sortAreas = $('#tah-quote-editor-header-panels, #tah-quote-editor-main-panels, #tah-quote-editor-sidebar-panels');
+    var $sortAreas = $('#tah-quote-editor-header-panels, #tah-quote-editor-main-panels');
     $sortAreas.sortable({
         connectWith: '.tah-quote-editor-panels',
         items: '> .postbox',
@@ -316,77 +329,109 @@ jQuery(function ($) {
         tolerance: 'pointer'
     });
 
-    var $submitTitle = $('#submitdiv .hndle').first();
-    if ($submitTitle.length) {
-        $submitTitle.text('Actions');
-    }
-
-    // Sidebar resizing (affects how much room Pricing Table has).
-    var $editor = $('#tah-quote-editor');
-    var $layout = $editor.find('.tah-quote-editor-layout').first();
-    var $sidebar = $layout.find('.tah-quote-editor-sidebar').first();
-
-    function setSidebarWidth(px) {
-        var w = parseInt(String(px || '340'), 10) || 340;
-        if (w < 260) w = 260;
-        if (w > 900) w = 900;
-        $editor[0].style.setProperty('--tah-sidebar-width', w + 'px');
-        if (window.localStorage) {
-            window.localStorage.setItem(STORAGE_PREFIX + 'sidebar_width', String(w));
-        }
-    }
-
-    function setSidebarCollapsed(collapsed) {
-        var isCollapsed = !!collapsed;
-        $editor.toggleClass('tah-sidebar-collapsed', isCollapsed);
-        if (window.localStorage) {
-            window.localStorage.setItem(STORAGE_PREFIX + 'sidebar_collapsed', isCollapsed ? '1' : '0');
-        }
-        var $toggle = $('#tah-sidebar-toggle');
-        if ($toggle.length) {
-            $toggle.text(isCollapsed ? 'Show Sidebar' : 'Hide Sidebar');
-            $toggle.attr('aria-pressed', isCollapsed ? 'true' : 'false');
-        }
-    }
-
-    if ($editor.length && $sidebar.length && $.fn.resizable) {
-        var savedWidth = window.localStorage ? window.localStorage.getItem(STORAGE_PREFIX + 'sidebar_width') : null;
-        var savedCollapsed = window.localStorage ? window.localStorage.getItem(STORAGE_PREFIX + 'sidebar_collapsed') : null;
-        if (savedWidth) {
-            setSidebarWidth(savedWidth);
-        }
-        if (savedCollapsed === '1') {
-            setSidebarCollapsed(true);
-        }
-
-        $sidebar.resizable({
-            handles: 'w',
-            minWidth: 260,
-            maxWidth: 900,
-            resize: function (event, ui) {
-                setSidebarWidth(ui.size.width);
-            },
-            stop: function (event, ui) {
-                setSidebarWidth(ui.size.width);
-            }
-        });
-
-        $layout.on('dblclick', '.ui-resizable-w', function (event) {
-            event.preventDefault();
-            setSidebarCollapsed(!$editor.hasClass('tah-sidebar-collapsed'));
-        });
-    }
-
-    // Rebind panel resizing with sidebar helpers once available.
+    // Bind panel resizing once metaboxes are in place.
     map.forEach(function (entry) {
         var $panel = $('#' + entry.id);
         if ($panel.length) {
-            initPanelResizing($panel, { setSidebarCollapsed: setSidebarCollapsed });
+            initPanelResizing($panel, null);
         }
     });
 
-    $('#tah-sidebar-toggle').on('click', function () {
-        setSidebarCollapsed(!$editor.hasClass('tah-sidebar-collapsed'));
+    function getCurrentPostStatus() {
+        var $original = $('#original_post_status');
+        if ($original.length) {
+            return String($original.val() || '');
+        }
+        var $status = $('#post_status');
+        return $status.length ? String($status.val() || '') : '';
+    }
+
+    function isAlreadyPublished(status) {
+        return status === 'publish' || status === 'private' || status === 'future';
+    }
+
+    function setPrimaryLabel() {
+        var status = getCurrentPostStatus();
+        var $btn = $('#tah-action-primary');
+        if (!$btn.length) {
+            return;
+        }
+        $btn.text(isAlreadyPublished(status) ? 'Update' : 'Publish');
+    }
+
+    function triggerPrimaryAction() {
+        var status = getCurrentPostStatus();
+        if (!isAlreadyPublished(status)) {
+            var $status = $('#post_status');
+            if ($status.length) {
+                $status.val('publish');
+            }
+        }
+        $('#publish').trigger('click');
+    }
+
+    function triggerSaveDraft() {
+        var $saveDraft = $('#save-post');
+        if ($saveDraft.length) {
+            $saveDraft.trigger('click');
+            return;
+        }
+
+        window.alert('Save Draft is not available in this state.');
+    }
+
+    setPrimaryLabel();
+
+    $('#tah-action-primary').on('click', function () {
+        triggerPrimaryAction();
+    });
+
+    $('#tah-action-toggle').on('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        var $menu = $('#tah-action-menu');
+        var isOpen = $menu.is(':visible');
+        $menu.toggle(!isOpen);
+        $('#tah-action-toggle').attr('aria-expanded', (!isOpen).toString());
+    });
+
+    $('#tah-action-menu').on('click', function (event) {
+        event.stopPropagation();
+    });
+
+    $(document).on('click', function () {
+        $('#tah-action-menu').hide();
+        $('#tah-action-toggle').attr('aria-expanded', 'false');
+    });
+
+    $(document).on('click', '#tah-action-menu [data-action]', function (event) {
+        event.preventDefault();
+        var action = String($(this).data('action') || '');
+        $('#tah-action-menu').hide();
+        $('#tah-action-toggle').attr('aria-expanded', 'false');
+
+        if (action === 'save_draft') {
+            triggerSaveDraft();
+            return;
+        }
+        if (action === 'delete') {
+            if (!window.confirm('Move this quote to the trash?')) {
+                return;
+            }
+
+            var $deleteLink = $('#submitdiv a.submitdelete').first();
+            if ($deleteLink.length) {
+                $deleteLink[0].click();
+                return;
+            }
+
+            window.alert('Delete is not available until the quote has been saved at least once.');
+            return;
+        }
+        if (action === 'email') {
+            window.alert('Email is not implemented yet.');
+            return;
+        }
     });
 
     $(document).on('postbox-toggled', function (event, postbox) {
@@ -397,6 +442,17 @@ jQuery(function ($) {
         var $postbox = $(postbox);
         $postbox.css({ height: '' });
     });
+
+    // Move WP Screen Options to the bottom of the quote editor (in-flow, not floating).
+    var $screenMetaLinks = $('#screen-meta-links');
+    var $screenMeta = $('#screen-meta');
+    var $footer = $('#tah-screen-options-footer');
+    if ($footer.length && $screenMetaLinks.length) {
+        $footer.append($screenMetaLinks);
+        if ($screenMeta.length) {
+            $footer.append($screenMeta);
+        }
+    }
 });
 JS;
     }
@@ -484,17 +540,6 @@ JS;
     /**
      * @param WP_Post $post
      */
-    public function render_duplicate_submitbox_action($post): void
-    {
-        if (!$post instanceof WP_Post || $post->post_type !== self::POST_TYPE) {
-            return;
-        }
-
-        $duplicate_url = $this->build_duplicate_url((int) $post->ID);
-        echo '<div class="misc-pub-section tah-duplicate-quote-action">';
-        echo '<a href="' . esc_url($duplicate_url) . '" class="button button-secondary button-small">' . esc_html__('Duplicate Quote', 'the-artist') . '</a>';
-        echo '</div>';
-    }
 
     /**
      * @return bool
