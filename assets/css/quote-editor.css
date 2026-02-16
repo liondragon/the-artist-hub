@@ -26,14 +26,24 @@ body.tah-quote-editor-enabled .wrap h1.wp-heading-inline {
 /* Screen Options overlay (Quote editor only). */
 body.tah-quote-editor-enabled #tah-screen-options-footer {
     display: flex;
+    flex-direction: column;
+    /* Standard Order: Button Top, Panel Bottom */
     justify-content: flex-end;
-    flex-wrap: wrap;
-    /* Allow panel to flow to new line */
     margin-top: 18px;
     padding: 0;
-    position: relative;
+    position: sticky;
+    /* Anchor to bottom of viewport/parent */
+    bottom: 0;
     z-index: 100;
-    /* Ensure button stays on top of content below if any */
+    background: transparent;
+    /* Or match bg if needed to cover content */
+    pointer-events: none;
+    /* Let clicks pass through empty space */
+}
+
+/* Re-enable pointer events on interactive children */
+body.tah-quote-editor-enabled #tah-screen-options-footer>* {
+    pointer-events: auto;
 }
 
 body.tah-quote-editor-enabled #tah-screen-options-footer #screen-meta-links {
@@ -60,9 +70,8 @@ body.tah-quote-editor-enabled #tah-screen-options-footer #screen-meta-links .sho
     margin: 0;
     position: relative;
     z-index: 2;
-    /* Sit on top of panel border */
     margin-bottom: -1px;
-    /* Overlap panel border */
+    /* Overlap panel top border */
 }
 
 body.tah-quote-editor-enabled #tah-screen-options-footer #screen-meta-links .show-settings::after {
@@ -96,6 +105,8 @@ body.tah-quote-editor-enabled #screen-meta {
     width: 100%;
     z-index: 1;
     /* Below button */
+    text-align: left;
+    overflow: hidden;
 }
 
 /* Ensure WP's default #screen-meta styles don't override our relative positioning */
