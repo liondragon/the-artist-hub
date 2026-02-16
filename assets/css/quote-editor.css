@@ -11,6 +11,14 @@ body.tah-quote-editor-enabled #post-body.columns-2 {
     margin-right: 0;
 }
 
+body.tah-quote-editor-enabled #wpbody-content {
+    padding-bottom: 0;
+}
+
+body.tah-quote-editor-enabled #post-body-content {
+    margin-bottom: 0;
+}
+
 body.tah-quote-editor-enabled .wrap h1.wp-heading-inline {
     margin-bottom: 4px;
 }
@@ -20,7 +28,7 @@ body.tah-quote-editor-enabled #tah-screen-options-footer {
     display: flex;
     justify-content: flex-end;
     margin-top: 18px;
-    padding: 0 0 8px;
+    padding: 0;
     position: relative;
 }
 
@@ -220,23 +228,23 @@ body.tah-quote-editor-enabled #screen-meta {
     margin: 0;
 }
 
-#tah-quote-editor .tah-quote-editor-panels > .postbox {
+#tah-quote-editor .tah-quote-editor-panels>.postbox {
     grid-column: span 12;
 }
 
-#tah-quote-editor .tah-quote-editor-panels > .postbox.tah-span-12 {
+#tah-quote-editor .tah-quote-editor-panels>.postbox.tah-span-12 {
     grid-column: span 12;
 }
 
-#tah-quote-editor .tah-quote-editor-panels > .postbox.tah-span-6 {
+#tah-quote-editor .tah-quote-editor-panels>.postbox.tah-span-6 {
     grid-column: span 6;
 }
 
-#tah-quote-editor .tah-quote-editor-panels > .postbox.tah-span-8 {
+#tah-quote-editor .tah-quote-editor-panels>.postbox.tah-span-8 {
     grid-column: span 8;
 }
 
-#tah-quote-editor .tah-quote-editor-panels > .postbox.tah-span-4 {
+#tah-quote-editor .tah-quote-editor-panels>.postbox.tah-span-4 {
     grid-column: span 4;
 }
 
@@ -276,7 +284,7 @@ body.tah-quote-editor-enabled #screen-meta {
     width: 2px;
 }
 
- 
+
 #tah-quote-editor .postbox.closed {
     height: auto !important;
 }
