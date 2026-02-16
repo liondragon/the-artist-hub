@@ -27,9 +27,13 @@ body.tah-quote-editor-enabled .wrap h1.wp-heading-inline {
 body.tah-quote-editor-enabled #tah-screen-options-footer {
     display: flex;
     justify-content: flex-end;
+    flex-wrap: wrap;
+    /* Allow panel to flow to new line */
     margin-top: 18px;
     padding: 0;
     position: relative;
+    z-index: 100;
+    /* Ensure button stays on top of content below if any */
 }
 
 body.tah-quote-editor-enabled #tah-screen-options-footer #screen-meta-links {
@@ -54,6 +58,11 @@ body.tah-quote-editor-enabled #tah-screen-options-footer #screen-meta-links .sho
     height: auto;
     padding: 3px 6px 3px 20px;
     margin: 0;
+    position: relative;
+    z-index: 2;
+    /* Sit on top of panel border */
+    margin-bottom: -1px;
+    /* Overlap panel border */
 }
 
 body.tah-quote-editor-enabled #tah-screen-options-footer #screen-meta-links .show-settings::after {
@@ -68,16 +77,30 @@ body.tah-quote-editor-enabled #tah-screen-options-footer #screen-meta-links .sho
 
 
 body.tah-quote-editor-enabled #screen-meta {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: calc(100% + 8px);
-    z-index: 50;
-    max-height: 55vh;
-    overflow: auto;
-    border-radius: 12px;
-    box-shadow: 0 18px 48px rgba(16, 24, 40, 0.26);
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-top: 1px solid #c3c4c7;
+    /* Ensure top border exists */
+    border-radius: 0 0 4px 4px;
+    /* Bottom rounded corners */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    display: none;
+    /* WP handles toggling display, but hidden by default */
+    margin: 0;
+    position: relative;
+    /* Flow relative to button */
+    top: auto;
+    bottom: auto;
+    left: auto;
+    right: auto;
+    width: 100%;
+    z-index: 1;
+    /* Below button */
 }
+
+/* Ensure WP's default #screen-meta styles don't override our relative positioning */
+/* Also reset WP specific margins inside screen-meta if needed */
+
 
 #tah-quote-editor {
     margin-top: 12px;
