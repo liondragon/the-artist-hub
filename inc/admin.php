@@ -45,7 +45,7 @@ function remove_admin_bar_links()
     $wp_admin_bar->remove_menu('documentation');    // Remove the WordPress documentation link
     $wp_admin_bar->remove_menu('support-forums');   // Remove the support forums link
     $wp_admin_bar->remove_menu('feedback');         // Remove the feedback link
-    $wp_admin_bar->remove_menu('view-site'); // 'Visit Site'
+    // $wp_admin_bar->remove_menu('view-site'); // 'Visit Site'
     $wp_admin_bar->remove_menu('dashboard'); // 'Dashboard'
     $wp_admin_bar->remove_menu('themes'); // 'Themes'
     $wp_admin_bar->remove_menu('widgets'); // 'Widgets'
@@ -151,6 +151,23 @@ function wpse_remove_footer()
 }
 add_action('admin_init', 'wpse_remove_footer');
 
+/**
+ * Add footer buttons to Admin Sidebar (PHP/CSS Version)
+ */
+function the_artist_add_admin_sidebar_footer()
+{
+    $profile_url = get_edit_profile_url();
+    $logout_url = wp_logout_url();
+    $home_url = home_url();
+
+    echo '<div id="tah-admin-sidebar-footer" class="tah-admin-sidebar-footer">';
+    echo '<a href="' . esc_url($profile_url) . '" title="Profile" class="tah-footer-icon"><span class="dashicons dashicons-admin-users"></span></a>';
+    echo '<a href="' . esc_url($logout_url) . '" title="Log Out" class="tah-footer-icon"><span class="dashicons dashicons-migrate"></span></a>';
+    echo '<a href="' . esc_url($home_url) . '" title="Switch Site" class="tah-footer-icon"><span class="dashicons dashicons-admin-home"></span></a>';
+    echo '</div>';
+}
+add_action('admin_footer', 'the_artist_add_admin_sidebar_footer');
+
 
 /**
  * -----------------------------------------------------------------------------
@@ -169,13 +186,10 @@ add_action('admin_enqueue_scripts', 'load_theme_admin_styles');
 add_action('login_enqueue_scripts', 'load_theme_admin_styles');
 
 // Also load on frontend for admin bar styling
+// Also load on frontend for admin bar styling
 function load_admin_bar_styles()
 {
-    if (is_admin_bar_showing()) {
-        $css_path = get_template_directory() . '/assets/css/admin.css';
-        $version = file_exists($css_path) ? filemtime($css_path) : '1.0.0';
-        wp_enqueue_style('theme-admin', get_template_directory_uri() . '/assets/css/admin.css', false, $version);
-    }
+    // Intentionally empty
 }
 add_action('wp_enqueue_scripts', 'load_admin_bar_styles');
 add_theme_support('admin-bar', array('callback' => '__return_false'));
