@@ -45,15 +45,6 @@ class TAH_Quote_Sections
         remove_meta_box('tagsdiv-trade', 'quotes', 'side');
 
         add_meta_box(
-            'tah_trade_single_select',
-            __('Trade', 'the-artist'),
-            [$this, 'render_trade_single_select_metabox'],
-            'quotes',
-            'side',
-            'high'
-        );
-
-        add_meta_box(
             'tah_quote_sections',
             __('Info Sections', 'the-artist'),
             [$this, 'render_quote_sections_metabox'],

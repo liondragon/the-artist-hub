@@ -60,6 +60,20 @@
         return normalizeQuoteFormat($editor.attr('data-quote-format'));
     }
 
+    function getSelectedTradeId() {
+        var $select = $('#tah-trade-term-id');
+        if ($select.length) {
+            return parseInt(String($select.val() || '0'), 10) || 0;
+        }
+
+        var $checkedRadio = $('input[name="tah_trade_term_id"]:checked');
+        if ($checkedRadio.length) {
+            return parseInt(String($checkedRadio.val() || '0'), 10) || 0;
+        }
+
+        return 0;
+    }
+
     function normalizeTradeContext(value) {
         var context = String(value || '').toLowerCase().trim();
         if (context === 'all') {
@@ -434,10 +448,36 @@
 
     function applyTradeContextFilter(format) {
         var normalizedFormat = normalizeQuoteFormat(format);
+        var $select = $('#tah-trade-term-id');
+        if ($select.length) {
+            var selectedTradeId = getSelectedTradeId();
+            var selectedAllowed = selectedTradeId === 0;
+
+            $select.find('option').each(function () {
+                var $option = $(this);
+                var tradeId = parseInt(String($option.val() || '0'), 10) || 0;
+                if (tradeId === 0) {
+                    $option.prop('disabled', false).prop('hidden', false);
+                    return;
+                }
+
+                var context = normalizeTradeContext(tradeContexts[String(tradeId)]);
+                var isAllowed = isTradeContextAllowed(normalizedFormat, context);
+                $option.prop('disabled', !isAllowed).prop('hidden', !isAllowed);
+                if (tradeId === selectedTradeId && isAllowed) {
+                    selectedAllowed = true;
+                }
+            });
+
+            if (!selectedAllowed) {
+                $select.val('0').trigger('change');
+            }
+            return;
+        }
+
         var hadActiveSelection = false;
         var activeSelectionStillVisible = false;
-
-        $('#tah_trade_single_select input[name="tah_trade_term_id"]').each(function () {
+        $('input[name="tah_trade_term_id"]').each(function () {
             var $input = $(this);
             var tradeId = parseInt(String($input.val() || '0'), 10) || 0;
             var $row = $input.closest('p');
@@ -472,7 +512,7 @@
         });
 
         if (hadActiveSelection && !activeSelectionStillVisible) {
-            $('#tah_trade_single_select input[name="tah_trade_term_id"][value="0"]').prop('checked', true).trigger('change');
+            $('input[name="tah_trade_term_id"][value="0"]').prop('checked', true).trigger('change');
         }
     }
 
@@ -1332,12 +1372,12 @@
             applyQuoteFormatUi($(this).val());
         });
 
-        $(document).on('change', 'input[name="tah_trade_term_id"]', function () {
+        $(document).on('change', '#tah-trade-term-id, input[name="tah_trade_term_id"]', function () {
             if (getSelectedQuoteFormat() !== 'standard') {
                 return;
             }
 
-            var tradeId = parseInt(String($(this).val() || '0'), 10) || 0;
+            var tradeId = getSelectedTradeId();
             if (tradeId <= 0) {
                 return;
             }

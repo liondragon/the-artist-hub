@@ -97,7 +97,6 @@ function the_artist_quote_metabox_callback($post)
 
 	$customer_name = get_post_meta($post->ID, 'customer_name', true);
 	$customer_address = get_post_meta($post->ID, 'customer_address', true);
-	$estimate_type = get_post_meta($post->ID, 'estimate_type', true);
 
 	// nonce, actually I think it is not necessary here
 	wp_nonce_field('the_artist_save_quote', '_tfanonce');
@@ -111,16 +110,6 @@ function the_artist_quote_metabox_callback($post)
 			<tr>
 				<th><label for="customer_address">Customer Address</label></th>
 				<td><input type="text" id="customer_address" name="customer_address" value="' . esc_attr($customer_address) . '" class="regular-text"></td>
-			</tr>
-			<tr>
-				<th><label for="seo_tobots">Estimate Type</label></th>
-				<td>
-					<input type="radio" id="in_house" name="estimate_type" value="in_house" ' . checked($estimate_type, 'in_house', false) . ' required>
-					<label for="in_house">On-Site Quote</label>
-					<br>
-					<input type="radio" id="virtual" name="estimate_type" value="virtual" ' . checked($estimate_type, 'virtual', false) . ' required>
-					<label for="virtual">Virtual Estimate</label>
-				</td>
 			</tr>
 		</tbody>
 	</table>';

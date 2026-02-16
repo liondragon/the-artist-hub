@@ -11,6 +11,7 @@ if (!defined('ABSPATH')) {
 final class TAH_Quote_Edit_Screen
 {
     const POST_TYPE = 'quotes';
+    const QUOTE_OPTIONS_METABOX_ID = 'tah_quote_options';
     const DUPLICATE_ACTION = 'tah_duplicate_quote';
     const DUPLICATE_NONCE_ACTION = 'tah_duplicate_quote';
     const NOTES_NONCE_ACTION = 'tah_quote_admin_notes_save';
@@ -19,7 +20,8 @@ final class TAH_Quote_Edit_Screen
 
     public function __construct()
     {
-        add_action('add_meta_boxes_' . self::POST_TYPE, [$this, 'configure_meta_boxes'], 100);
+        add_action('add_meta_boxes', [$this, 'configure_meta_boxes'], 100, 2);
+        add_action('add_meta_boxes_' . self::POST_TYPE, [$this, 'register_quote_options_metabox'], 100);
         add_action('edit_form_after_title', [$this, 'render_editor_shell']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_assets']);
         add_filter('admin_body_class', [$this, 'add_body_class']);
@@ -30,8 +32,12 @@ final class TAH_Quote_Edit_Screen
     /**
      * Remove default editor chrome and non-essential boxes for the custom layout.
      */
-    public function configure_meta_boxes()
+    public function configure_meta_boxes($post_type = '', $post = null)
     {
+        if ($post_type !== '' && $post_type !== self::POST_TYPE) {
+            return;
+        }
+
         remove_meta_box('slugdiv', self::POST_TYPE, 'normal');
         remove_meta_box('postdivrich', self::POST_TYPE, 'normal');
         remove_meta_box('postexcerpt', self::POST_TYPE, 'normal');
@@ -43,6 +49,18 @@ final class TAH_Quote_Edit_Screen
         remove_meta_box('revisionsdiv', self::POST_TYPE, 'normal');
         remove_meta_box('formatdiv', self::POST_TYPE, 'side');
         remove_meta_box('postimagediv', self::POST_TYPE, 'side');
+    }
+
+    public function register_quote_options_metabox($post = null): void
+    {
+        add_meta_box(
+            self::QUOTE_OPTIONS_METABOX_ID,
+            __('Quote Options', 'the-artist'),
+            [$this, 'render_quote_options_metabox'],
+            self::POST_TYPE,
+            'side',
+            'high'
+        );
     }
 
     /**
@@ -105,6 +123,7 @@ final class TAH_Quote_Edit_Screen
         echo '</section>';
 
         echo '<aside class="tah-quote-editor-sidebar">';
+        echo '<div id="tah-quote-editor-sidebar-options" class="tah-quote-editor-slot"></div>';
         echo '<div id="tah-quote-editor-sidebar-sections" class="tah-quote-editor-slot"></div>';
         echo '<section id="tah-quote-editor-sidebar-notes" class="tah-card tah-quote-editor-notes">';
         echo '<h3 class="tah-sidebar-heading">' . esc_html__('Admin Notes', 'the-artist') . '</h3>';
@@ -163,7 +182,8 @@ final class TAH_Quote_Edit_Screen
 jQuery(function ($) {
     var map = [
         { id: 'tfa_metabox', target: '#tah-quote-editor-header-customer' },
-        { id: 'tah_trade_single_select', target: '#tah-quote-editor-header-trade' },
+        { id: 'tah_quote_options', target: '#tah-quote-editor-sidebar-options' },
+        { id: 'tah_trade_single_select', target: '#tah-quote-editor-sidebar-options' },
         { id: 'tah_quote_pricing', target: '#tah-quote-editor-main-pricing' },
         { id: 'tah_quote_sections', target: '#tah-quote-editor-sidebar-sections' },
         { id: 'submitdiv', target: '#tah-quote-editor-sidebar-publish' }
@@ -182,6 +202,70 @@ jQuery(function ($) {
     });
 });
 JS;
+    }
+
+    /**
+     * @param WP_Post $post
+     */
+    public function render_quote_options_metabox($post): void
+    {
+        if (!$post instanceof WP_Post || $post->post_type !== self::POST_TYPE) {
+            return;
+        }
+
+        $quote_id = (int) $post->ID;
+        $trade_term_id = $this->get_active_trade_term_id($quote_id);
+        $trade_terms = get_terms([
+            'taxonomy' => 'trade',
+            'hide_empty' => false,
+            'orderby' => 'name',
+            'order' => 'ASC',
+        ]);
+        $estimate_type = (string) get_post_meta($quote_id, 'estimate_type', true);
+        $quote_format = (string) get_post_meta($quote_id, '_tah_quote_format', true);
+        $quote_format = $quote_format === 'insurance' ? 'insurance' : 'standard';
+
+        wp_nonce_field('the_artist_save_quote', '_tfanonce');
+        wp_nonce_field('tah_quote_pricing_save', '_tah_quote_pricing_nonce');
+        wp_nonce_field('tah_quote_sections_save', '_tah_quote_sections_nonce');
+
+        echo '<div class="tah-quote-options-fields">';
+        echo '<p class="tah-quote-options-field">';
+        echo '<label for="tah-trade-term-id"><strong>' . esc_html__('Trade', 'the-artist') . '</strong></label>';
+        echo '<select id="tah-trade-term-id" name="tah_trade_term_id" class="widefat">';
+        echo '<option value="0" ' . selected(0, $trade_term_id, false) . '>' . esc_html__('None', 'the-artist') . '</option>';
+
+        if (is_array($trade_terms)) {
+            foreach ($trade_terms as $term) {
+                if (!$term instanceof WP_Term) {
+                    continue;
+                }
+
+                echo '<option value="' . esc_attr((string) $term->term_id) . '" ' . selected((int) $term->term_id, $trade_term_id, false) . '>';
+                echo esc_html((string) $term->name);
+                echo '</option>';
+            }
+        }
+
+        echo '</select>';
+        echo '</p>';
+
+        echo '<p class="tah-quote-options-field">';
+        echo '<label for="estimate_type"><strong>' . esc_html__('Estimate Type', 'the-artist') . '</strong></label>';
+        echo '<select id="estimate_type" name="estimate_type" class="widefat">';
+        echo '<option value="in_house" ' . selected($estimate_type, 'in_house', false) . '>' . esc_html__('On-Site Quote', 'the-artist') . '</option>';
+        echo '<option value="virtual" ' . selected($estimate_type, 'virtual', false) . '>' . esc_html__('Virtual Estimate', 'the-artist') . '</option>';
+        echo '</select>';
+        echo '</p>';
+
+        echo '<p class="tah-quote-options-field">';
+        echo '<label for="tah-quote-format"><strong>' . esc_html__('Quote Format', 'the-artist') . '</strong></label>';
+        echo '<select id="tah-quote-format" name="tah_quote_format" class="widefat">';
+        echo '<option value="standard" ' . selected($quote_format, 'standard', false) . '>' . esc_html__('Standard', 'the-artist') . '</option>';
+        echo '<option value="insurance" ' . selected($quote_format, 'insurance', false) . '>' . esc_html__('Insurance', 'the-artist') . '</option>';
+        echo '</select>';
+        echo '</p>';
+        echo '</div>';
     }
 
     /**
@@ -215,6 +299,25 @@ JS;
         return $first instanceof WP_Term
             ? (string) $first->name
             : (string) __('Not set', 'the-artist');
+    }
+
+    private function get_active_trade_term_id(int $post_id): int
+    {
+        $terms = wp_get_post_terms($post_id, 'trade');
+        if (is_wp_error($terms) || empty($terms)) {
+            return 0;
+        }
+
+        usort($terms, function ($a, $b) {
+            return (int) $a->term_id <=> (int) $b->term_id;
+        });
+
+        $active_term = $terms[0] ?? null;
+        if (!$active_term instanceof WP_Term) {
+            return 0;
+        }
+
+        return (int) $active_term->term_id;
     }
 
     private function get_view_tracking_summary(int $post_id): string

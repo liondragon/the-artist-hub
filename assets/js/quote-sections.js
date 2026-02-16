@@ -222,11 +222,25 @@
             return;
         }
 
-        var selectedTrade = $('input[name="tah_trade_term_id"]:checked');
-        var hasTrade = selectedTrade.length && parseInt(selectedTrade.val(), 10) > 0;
+        var selectedTradeId = getSelectedTradeId();
+        var hasTrade = selectedTradeId > 0;
 
         // Keep the actions toggle clickable; disable only menu action items.
         $('.tah-actions-menu .tah-menu-item').prop('disabled', !hasTrade);
+    }
+
+    function getSelectedTradeId() {
+        var $select = $('#tah-trade-term-id');
+        if ($select.length) {
+            return parseInt(String($select.val() || '0'), 10) || 0;
+        }
+
+        var $checkedRadio = $('input[name="tah_trade_term_id"]:checked');
+        if ($checkedRadio.length) {
+            return parseInt(String($checkedRadio.val() || '0'), 10) || 0;
+        }
+
+        return 0;
     }
 
     function refreshEmptyState() {
@@ -306,8 +320,8 @@
         }
 
         if (typeof tahQuoteSectionsConfig !== 'undefined' && $list.length) {
-            $(document).on('change', 'input[name="tah_trade_term_id"]', function () {
-                var tradeId = String(parseInt($(this).val(), 10) || 0);
+            $(document).on('change', '#tah-trade-term-id, input[name="tah_trade_term_id"]', function () {
+                var tradeId = String(getSelectedTradeId());
                 var tradePresets = tahQuoteSectionsConfig.tradePresets || {};
                 var sectionTitles = tahQuoteSectionsConfig.sectionTitles || {};
                 var labels = tahQuoteSectionsConfig.labels || {};

@@ -97,14 +97,7 @@ final class TAH_Quote_Pricing_Metabox
         wp_nonce_field(self::NONCE_ACTION, self::NONCE_NAME);
 
         echo '<div id="tah-quote-pricing" class="tah-pricing-editor" data-quote-id="' . esc_attr((string) $quote_id) . '" data-quote-format="' . esc_attr($quote_format) . '">';
-        echo '<div class="tah-pricing-format-controls">';
-        echo '<label class="tah-pricing-format-field">';
-        echo '<span class="tah-pricing-format-label">' . esc_html__('Quote Format', 'the-artist') . '</span>';
-        echo '<select id="tah-quote-format" name="' . esc_attr(self::FIELD_QUOTE_FORMAT) . '" class="tah-form-control">';
-        echo '<option value="standard" ' . selected($quote_format, 'standard', false) . '>' . esc_html__('Standard', 'the-artist') . '</option>';
-        echo '<option value="insurance" ' . selected($quote_format, 'insurance', false) . '>' . esc_html__('Insurance', 'the-artist') . '</option>';
-        echo '</select>';
-        echo '</label>';
+        echo '<div class="tah-pricing-meta-controls">';
         echo '<label class="tah-pricing-format-field tah-insurance-tax-rate-field">';
         echo '<span class="tah-pricing-format-label">' . esc_html__('Sales Tax Rate', 'the-artist') . '</span>';
         echo '<input type="number" id="tah-quote-tax-rate" name="' . esc_attr(self::FIELD_QUOTE_TAX_RATE) . '" class="tah-form-control" step="0.0001" min="0" value="' . esc_attr($tax_rate) . '" placeholder="0.0000">';
