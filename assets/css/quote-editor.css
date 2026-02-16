@@ -24,7 +24,8 @@ body.tah-quote-editor-enabled .wrap h1.wp-heading-inline {
 }
 
 /* Moved Header Actions */
-.wrap>.tah-quote-editor-header-actions {
+/* Moved Header Actions */
+body.tah-quote-editor-enabled .wrap>.tah-quote-editor-header-actions {
     float: right;
     display: flex;
     align-items: center;
@@ -388,7 +389,8 @@ body.tah-quote-editor-enabled #tah-quote-editor .postbox .postbox-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 12px;
+    padding: 0 12px 0 0;
+    /* Remove left padding */
     min-height: 48px;
     /* Consistent height */
     cursor: pointer;
@@ -402,10 +404,15 @@ body.tah-quote-editor-enabled #tah-quote-editor .postbox .hndle {
     color: #101828;
     /* TAH ink */
     margin: 0;
-    padding: 0;
+    padding: 0 0 0 12px;
+    /* Add left padding here */
     line-height: 1.4;
     cursor: inherit;
     flex-grow: 1;
+    /* Fix: Full height clickability */
+    align-self: stretch;
+    display: flex;
+    align-items: center;
 }
 
 /* 4. Toggle Buttons (Standard .handlediv + Custom .tah-toggle-trigger) */

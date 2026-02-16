@@ -122,9 +122,11 @@ final class TAH_Quote_Edit_Screen
         echo '</h2>';
 
         // Standard WP Toggle Button
-        echo '<div class="handlediv" aria-hidden="true">';
+        // Standard WP Toggle Button
+        echo '<button type="button" class="handlediv" aria-expanded="true">';
+        echo '<span class="screen-reader-text">' . esc_html__('Toggle panel: Quote Information', 'the-artist') . '</span>';
         echo '<span class="toggle-indicator" aria-hidden="true"></span>';
-        echo '</div>';
+        echo '</button>';
         echo '</div>'; // .postbox-header
 
         echo '<div class="inside">';

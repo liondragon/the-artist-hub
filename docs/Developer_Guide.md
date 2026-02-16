@@ -1,5 +1,7 @@
 # Developer Guide (Theme Modules + Gotchas)
 
+Local site that has this theme activated: https://wphub.local/wp-admin/
+
 ## Purpose
 This repo has a few theme subsystems that are easy to break via load-order or WordPress admin quirks. This guide documents:
 - where key features live,
@@ -166,6 +168,38 @@ if (version_compare($installed_version, TAH_PRICING_DB_VERSION, '<')) {
 ### Maintenance
 - View tracking: `inc/modules/pricing/class-quote-view-tracking.php`
 - Cascade delete hook registration: `TAH_Pricing_Module::handle_before_delete_post()`
+
+
+---
+
+## Quote Editor & Metaboxes
+
+### Purpose
+To provide a consistent, premium CRM experience while leveraging the stability of WordPress core UI components.
+
+### Strategy: "Visual Stacking, Behavioral Forking"
+The Quote Editor (`class-quote-edit-screen.php`) standardizes all metaboxes (Quote Info, Pricing, Note to Customer) using a unified approach:
+
+1.  **Visual Stacking (The "Look")**:
+    -   All metaboxes use **standard WordPress markup**: `.postbox`, `.postbox-header`, `.hndle`, `.inside`, `.handlediv`.
+    -   A **Scoped Skin** applies our custom design ("The Artist Hub" card style) to these standard elements.
+    -   **Scope Selector**: `body.tah-quote-editor-enabled #tah-quote-editor` ensures styles never leak to other admin screens.
+    -   **CSS File**: `assets/css/quote-editor.css` owns the layout and skin.
+
+2.  **Behavioral Forking (The "Act")**:
+    -   **Standard Behavior**: Most metaboxes (Quote Info, Pricing) rely 100% on native WordPress toggle and drag-and-drop scripts (`postbox.js`).
+    -   **Custom Fork ("Note to a Customer")**: This specific metabox contains a complex TinyMCE editor that conflicts with `postbox.js`.
+        -   **Opt-Out Class**: `.tah-postbox-custom-toggle` marks it for custom handling.
+        -   **Event Blocking**: JS explicitly stops propagation on header clicks to prevent WP from interfering.
+        -   **Custom Trigger**: A dedicated button `.tah-toggle-trigger` handles the collapse/expand logic.
+        -   **Resize Hook**: Triggers a window resize event on toggle to fix TinyMCE layout glitches.
+
+### Key Classes
+| Class | Purpose |
+|-------|---------|
+| `.tah-quote-editor-enabled` | Body class added by `class-quote-edit-screen.php` to scope styles. |
+| `.tah-postbox-custom-toggle` | Marker class on a `.postbox` to opt-out of WP `postbox.js` logic. |
+| `.tah-toggle-trigger` | The custom toggle button used in "Note to a Customer". |
 
 ---
 
@@ -531,6 +565,9 @@ if (function_exists('tah_render_quote_sections')) {
 - `admin.css` is enqueued via `load_theme_admin_styles()` in `inc/admin.php`
 - Module-specific CSS (e.g., `quote-editor.css`) must be conditionally enqueued with screen ID check
 - Icon buttons are hidden by default (`opacity: 0`) — always-visible icons need explicit overrides
+
+### Metabox Conflicts (Quote Editor)
+- The "Note to a Customer" metabox uses `.tah-postbox-custom-toggle` and aggressive event blocking (`stopPropagation`) to prevent `postbox.js` from breaking the editor. Do not remove this class or the JS handler in `class-quote-edit-screen.php`.
 
 ### Info Sections
 - `class-trade-presets.php` is loaded **only on admin** (`is_admin()` check in module boot)
