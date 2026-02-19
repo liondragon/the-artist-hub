@@ -44,18 +44,10 @@ body.tah-quote-editor-enabled #tah-screen-options-footer {
     justify-content: flex-end;
     margin-top: 18px;
     padding: 0;
-    position: sticky;
-    /* Anchor to bottom of viewport/parent */
-    bottom: 0;
-    z-index: 100;
+    position: static;
+    bottom: auto;
+    z-index: auto;
     background: transparent;
-    /* Or match bg if needed to cover content */
-    pointer-events: none;
-    /* Let clicks pass through empty space */
-}
-
-/* Re-enable pointer events on interactive children */
-body.tah-quote-editor-enabled #tah-screen-options-footer>* {
     pointer-events: auto;
 }
 
@@ -120,6 +112,13 @@ body.tah-quote-editor-enabled #screen-meta {
     /* Below button */
     text-align: left;
     overflow: hidden;
+}
+
+/* Keep editor status/footer in normal document flow on quote edit screen. */
+body.tah-quote-editor-enabled #post-status-info,
+body.tah-quote-editor-enabled #wp-content-editor-tools {
+    position: static !important;
+    bottom: auto !important;
 }
 
 /* Ensure WP's default #screen-meta styles don't override our relative positioning */
