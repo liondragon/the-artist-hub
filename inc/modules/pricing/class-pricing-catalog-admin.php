@@ -11,8 +11,21 @@ if (!defined('ABSPATH')) {
 final class TAH_Pricing_Catalog_Admin
 {
     const PAGE_SLUG = 'tah-pricing-catalog';
+    const CONTEXT_SCREEN_ID = 'quotes_page_tah-pricing-catalog';
+    const TABLE_KEY = 'pricing_catalog';
     const NONCE_SAVE_ACTION = 'tah_pricing_catalog_save';
     const NONCE_SAVE_NAME = '_tah_pricing_catalog_nonce';
+    private const COLUMN_CONTRACT = [
+        'title' => ['min_ch' => 18, 'base_ch' => 24],
+        'sku' => ['min_ch' => 10, 'max_ch' => 16],
+        'trade' => ['min_ch' => 10, 'max_ch' => 18],
+        'unit' => ['min_ch' => 8, 'max_ch' => 12],
+        'price' => ['min_ch' => 9, 'max_ch' => 14],
+        'status' => ['min_ch' => 8, 'max_ch' => 12],
+        'updated' => ['min_ch' => 10, 'max_ch' => 18],
+        'history' => ['min_ch' => 14, 'max_ch' => 32],
+        'actions' => ['locked' => true, 'resizable' => false, 'orderable' => false],
+    ];
 
     /**
      * @var TAH_Pricing_Repository
@@ -29,6 +42,7 @@ final class TAH_Pricing_Catalog_Admin
             : new TAH_Pricing_Repository();
 
         add_action('admin_menu', [$this, 'register_submenu_page']);
+        add_filter('tah_admin_table_registry', [$this, 'register_table_config'], 10, 2);
     }
 
     /**
@@ -48,6 +62,36 @@ final class TAH_Pricing_Catalog_Admin
         if ($hook_suffix) {
             add_action('load-' . $hook_suffix, [$this, 'handle_page_actions']);
         }
+    }
+
+    /**
+     * Register admin table contract for catalog page columns module integration.
+     *
+     * @param array<string, mixed> $tables
+     * @param string               $screen_id
+     * @return array<string, mixed>
+     */
+    public function register_table_config($tables, $screen_id)
+    {
+        if (!class_exists('TAH_Admin_Table_Columns_Module')) {
+            return is_array($tables) ? $tables : [];
+        }
+
+        return TAH_Admin_Table_Columns_Module::register_admin_table(
+            is_array($tables) ? $tables : [],
+            (string) $screen_id,
+            self::CONTEXT_SCREEN_ID,
+            self::TABLE_KEY,
+            self::COLUMN_CONTRACT,
+            [
+                'row_selector' => 'tbody tr',
+                'variant_attr' => 'data-tah-variant',
+                'allow_resize' => true,
+                'allow_reorder' => false,
+                'show_reset' => true,
+                'filler_column_key' => 'title',
+            ]
+        );
     }
 
     /**
@@ -494,16 +538,18 @@ final class TAH_Pricing_Catalog_Admin
             return;
         }
 
-        echo '<table class="widefat striped"><thead><tr>';
-        echo '<th>' . esc_html__('Title', 'the-artist') . '</th>';
-        echo '<th>' . esc_html__('SKU', 'the-artist') . '</th>';
-        echo '<th>' . esc_html__('Trade', 'the-artist') . '</th>';
-        echo '<th>' . esc_html__('Unit', 'the-artist') . '</th>';
-        echo '<th>' . esc_html__('Price', 'the-artist') . '</th>';
-        echo '<th>' . esc_html__('Status', 'the-artist') . '</th>';
-        echo '<th>' . esc_html__('Updated', 'the-artist') . '</th>';
-        echo '<th>' . esc_html__('Price History', 'the-artist') . '</th>';
-        echo '<th>' . esc_html__('Actions', 'the-artist') . '</th>';
+        $column_labels = $this->get_catalog_table_column_labels();
+        $column_keys = array_keys(self::COLUMN_CONTRACT);
+
+        echo '<table class="widefat striped tah-pricing-catalog-table tah-resizable-table" data-tah-table="' . esc_attr(self::TABLE_KEY) . '" data-tah-variant="' . esc_attr($catalog_type) . '"><thead><tr>';
+        foreach ($column_keys as $column_key) {
+            if (!isset($column_labels[$column_key])) {
+                continue;
+            }
+
+            $locked_attr = ($column_key === 'actions') ? ' data-tah-locked="1"' : '';
+            echo '<th data-tah-col="' . esc_attr($column_key) . '"' . $locked_attr . '>' . esc_html($column_labels[$column_key]) . '</th>';
+        }
         echo '</tr></thead><tbody>';
 
         foreach ($items as $item) {
@@ -534,19 +580,59 @@ final class TAH_Pricing_Catalog_Admin
             );
 
             echo '<tr>';
-            echo '<td><strong>' . esc_html((string) $item['title']) . '</strong><br><span class="description">' . esc_html((string) $item['description']) . '</span></td>';
-            echo '<td>' . esc_html((string) $item['sku']) . '</td>';
-            echo '<td>' . esc_html($trade_name) . '</td>';
-            echo '<td>' . esc_html((string) $item['unit_type']) . '</td>';
-            echo '<td>$' . esc_html(number_format((float) $item['unit_price'], 2)) . '</td>';
-            echo '<td>' . ($is_active ? esc_html__('Active', 'the-artist') : esc_html__('Inactive', 'the-artist')) . '</td>';
-            echo '<td>' . esc_html((string) $item['updated_at']) . '</td>';
-            echo '<td>' . $this->render_price_history_html(isset($item['price_history']) && is_array($item['price_history']) ? $item['price_history'] : []) . '</td>';
-            echo '<td><a href="' . esc_url($edit_url) . '">' . esc_html__('Edit', 'the-artist') . '</a> | <a href="' . esc_url($toggle_url) . '">' . ($is_active ? esc_html__('Deactivate', 'the-artist') : esc_html__('Activate', 'the-artist')) . '</a></td>';
+            $row_cells = $this->build_catalog_row_cells($item, $trade_name, $is_active, $edit_url, $toggle_url);
+            foreach ($column_keys as $column_key) {
+                if (!isset($row_cells[$column_key])) {
+                    continue;
+                }
+
+                echo $row_cells[$column_key];
+            }
             echo '</tr>';
         }
 
         echo '</tbody></table>';
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function get_catalog_table_column_labels(): array
+    {
+        return [
+            'title' => __('Title', 'the-artist'),
+            'sku' => __('SKU', 'the-artist'),
+            'trade' => __('Trade', 'the-artist'),
+            'unit' => __('Unit', 'the-artist'),
+            'price' => __('Price', 'the-artist'),
+            'status' => __('Status', 'the-artist'),
+            'updated' => __('Updated', 'the-artist'),
+            'history' => __('Price History', 'the-artist'),
+            'actions' => __('Actions', 'the-artist'),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $item
+     */
+    private function build_catalog_row_cells(
+        array $item,
+        string $trade_name,
+        bool $is_active,
+        string $edit_url,
+        string $toggle_url
+    ): array {
+        return [
+            'title' => '<td data-tah-col="title"><strong>' . esc_html((string) $item['title']) . '</strong><br><span class="description">' . esc_html((string) $item['description']) . '</span></td>',
+            'sku' => '<td data-tah-col="sku">' . esc_html((string) $item['sku']) . '</td>',
+            'trade' => '<td data-tah-col="trade">' . esc_html($trade_name) . '</td>',
+            'unit' => '<td data-tah-col="unit">' . esc_html((string) $item['unit_type']) . '</td>',
+            'price' => '<td data-tah-col="price">$' . esc_html(number_format((float) $item['unit_price'], 2)) . '</td>',
+            'status' => '<td data-tah-col="status">' . ($is_active ? esc_html__('Active', 'the-artist') : esc_html__('Inactive', 'the-artist')) . '</td>',
+            'updated' => '<td data-tah-col="updated">' . esc_html((string) $item['updated_at']) . '</td>',
+            'history' => '<td data-tah-col="history">' . $this->render_price_history_html(isset($item['price_history']) && is_array($item['price_history']) ? $item['price_history'] : []) . '</td>',
+            'actions' => '<td data-tah-col="actions"><a href="' . esc_url($edit_url) . '">' . esc_html__('Edit', 'the-artist') . '</a> | <a href="' . esc_url($toggle_url) . '">' . ($is_active ? esc_html__('Deactivate', 'the-artist') : esc_html__('Activate', 'the-artist')) . '</a></td>',
+        ];
     }
 
     /**

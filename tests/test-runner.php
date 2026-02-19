@@ -9,6 +9,12 @@
 if (!defined('ABSPATH')) {
     define('ABSPATH', dirname(__DIR__) . '/');
 }
+if (!defined('OBJECT')) {
+    define('OBJECT', 'OBJECT');
+}
+if (!defined('ARRAY_A')) {
+    define('ARRAY_A', 'ARRAY_A');
+}
 
 // Mock WP functions used in classes
 if (!function_exists('add_action')) {
@@ -45,10 +51,51 @@ if (!function_exists('sanitize_text_field')) {
         return trim($s);
     }
 }
+if (!function_exists('sanitize_key')) {
+    function sanitize_key($key)
+    {
+        $key = is_scalar($key) ? (string) $key : '';
+        $key = strtolower($key);
+        return preg_replace('/[^a-z0-9_-]/', '', $key);
+    }
+}
 if (!function_exists('absint')) {
     function absint($n)
     {
         return abs((int) $n);
+    }
+}
+if (!function_exists('get_current_user_id')) {
+    function get_current_user_id()
+    {
+        return 1;
+    }
+}
+if (!function_exists('get_user_meta')) {
+    function get_user_meta($user_id, $meta_key, $single = false)
+    {
+        global $tah_test_user_meta_store;
+        if (!is_array($tah_test_user_meta_store)) {
+            $tah_test_user_meta_store = [];
+        }
+        if (!isset($tah_test_user_meta_store[$user_id]) || !array_key_exists($meta_key, $tah_test_user_meta_store[$user_id])) {
+            return $single ? '' : [];
+        }
+        return $tah_test_user_meta_store[$user_id][$meta_key];
+    }
+}
+if (!function_exists('update_user_meta')) {
+    function update_user_meta($user_id, $meta_key, $meta_value)
+    {
+        global $tah_test_user_meta_store;
+        if (!is_array($tah_test_user_meta_store)) {
+            $tah_test_user_meta_store = [];
+        }
+        if (!isset($tah_test_user_meta_store[$user_id]) || !is_array($tah_test_user_meta_store[$user_id])) {
+            $tah_test_user_meta_store[$user_id] = [];
+        }
+        $tah_test_user_meta_store[$user_id][$meta_key] = $meta_value;
+        return true;
     }
 }
 

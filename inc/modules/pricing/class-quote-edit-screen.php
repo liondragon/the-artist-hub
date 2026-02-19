@@ -11,6 +11,8 @@ if (!defined('ABSPATH')) {
 final class TAH_Quote_Edit_Screen
 {
     const POST_TYPE = 'quotes';
+    const PRICING_EDITOR_TABLE_KEY = 'pricing_editor';
+    const PRICING_EDITOR_CONTEXT_SCREEN_ID = 'tah-quote-editor';
     const QUOTE_OPTIONS_METABOX_ID = 'tah_quote_options';
     const ADMIN_NOTES_METABOX_ID = 'tah_quote_admin_notes';
     const DUPLICATE_ACTION = 'tah_duplicate_quote';
@@ -18,6 +20,21 @@ final class TAH_Quote_Edit_Screen
     const NOTES_NONCE_ACTION = 'tah_quote_admin_notes_save';
     const NOTES_NONCE_NAME = '_tah_quote_admin_notes_nonce';
     const NOTES_META_KEY = '_tah_quote_admin_notes';
+    private const PRICING_EDITOR_COLUMN_CONTRACT = [
+        'handle' => ['locked' => true, 'resizable' => false, 'orderable' => false, 'min_px' => 28, 'max_px' => 28],
+        'index' => ['locked' => true, 'resizable' => false, 'orderable' => false, 'min_px' => 34, 'max_px' => 34],
+        'item' => ['min_ch' => 14, 'base_ch' => 50],
+        'sku' => ['min_ch' => 10, 'max_ch' => 16],
+        'description' => ['min_ch' => 18, 'base_ch' => 20],
+        'material' => ['min_ch' => 10, 'max_ch' => 14],
+        'labor' => ['min_ch' => 10, 'max_ch' => 14],
+        'qty' => ['min_ch' => 6, 'max_ch' => 9],
+        'rate' => ['min_ch' => 11, 'max_ch' => 16],
+        'tax' => ['min_ch' => 8, 'max_ch' => 10],
+        'amount' => ['min_ch' => 11, 'max_ch' => 16],
+        'margin' => ['min_ch' => 8, 'max_ch' => 12],
+        'actions' => ['locked' => true, 'resizable' => false, 'orderable' => false, 'min_px' => 44, 'max_px' => 44],
+    ];
 
     public function __construct()
     {
@@ -30,6 +47,8 @@ final class TAH_Quote_Edit_Screen
         add_filter('admin_body_class', [$this, 'add_body_class']);
         add_action('admin_post_' . self::DUPLICATE_ACTION, [$this, 'handle_duplicate_quote']);
         add_action('save_post_' . self::POST_TYPE, [$this, 'save_admin_notes'], 40, 3);
+        add_filter('tah_admin_table_registry', [$this, 'register_table_config'], 10, 2);
+        add_filter('tah_admin_table_context_screen_id', [$this, 'map_admin_table_context_screen_id'], 10, 3);
     }
 
     /**
@@ -207,6 +226,64 @@ final class TAH_Quote_Edit_Screen
         wp_enqueue_script('jquery-ui-sortable');
         wp_enqueue_script('jquery-ui-resizable');
         wp_add_inline_script('jquery', $this->relocation_script());
+    }
+
+    /**
+     * Register table configuration for the Quote Editor.
+     */
+    public function register_table_config($tables, $screen_id)
+    {
+        return TAH_Admin_Table_Columns_Module::register_admin_table(
+            is_array($tables) ? $tables : [],
+            (string) $screen_id,
+            self::PRICING_EDITOR_CONTEXT_SCREEN_ID,
+            self::PRICING_EDITOR_TABLE_KEY,
+            self::get_pricing_editor_column_contract(),
+            [
+                'row_selector' => 'tbody tr.tah-line-item-row',
+                'variant_attr' => 'data-tah-variant',
+                'allow_resize' => true,
+                'allow_reorder' => true,
+                'show_reset' => false,
+                'filler_column_key' => 'description',
+            ]
+        );
+    }
+
+    /**
+     * Map quote edit admin requests to the table-config context key.
+     *
+     * @param string $context_screen_id
+     * @param string $hook_suffix
+     * @param mixed  $screen
+     * @return string
+     */
+    public function map_admin_table_context_screen_id($context_screen_id, $hook_suffix, $screen)
+    {
+        if ($context_screen_id !== '') {
+            return (string) $context_screen_id;
+        }
+
+        if (
+            !($screen instanceof WP_Screen)
+            || !in_array((string) $hook_suffix, ['post.php', 'post-new.php'], true)
+            || $screen->base !== 'post'
+            || $screen->post_type !== self::POST_TYPE
+        ) {
+            return '';
+        }
+
+        return self::PRICING_EDITOR_CONTEXT_SCREEN_ID;
+    }
+
+    /**
+     * Canonical column keys + behavioral flags for pricing table columns.
+     *
+     * @return array<string, array<string, bool>>
+     */
+    public static function get_pricing_editor_column_contract(): array
+    {
+        return self::PRICING_EDITOR_COLUMN_CONTRACT;
     }
 
     /**

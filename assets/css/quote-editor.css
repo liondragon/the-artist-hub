@@ -627,7 +627,7 @@ body.tah-quote-editor-enabled #tah-quote-editor .postbox.closed #wp-content-edit
 
 #tah-quote-editor .tah-pricing-table-editor {
     border-collapse: collapse;
-    min-width: 1080px;
+    min-width: 100%;
     table-layout: fixed;
     width: 100%;
 }
@@ -637,6 +637,10 @@ body.tah-quote-editor-enabled #tah-quote-editor .postbox.closed #wp-content-edit
     border-bottom: 1px solid #eaecf0;
     padding: 6px 4px;
     vertical-align: middle;
+}
+
+#tah-quote-editor .tah-line-item-row > td {
+    vertical-align: top;
 }
 
 #tah-quote-editor .tah-pricing-table-editor th {
@@ -649,27 +653,121 @@ body.tah-quote-editor-enabled #tah-quote-editor .postbox.closed #wp-content-edit
 #tah-quote-editor .tah-col-handle,
 #tah-quote-editor .tah-cell-handle {
     width: 28px;
+    /* Fixed anchor */
+}
+
+#tah-quote-editor .tah-cell-handle {
+    padding: 6px 0 !important;
+    text-align: center;
+}
+
+#tah-quote-editor .tah-cell-handle .tah-line-handle {
+    align-items: center;
+    cursor: grab !important;
+    display: flex;
+    justify-content: center;
+    margin: 0;
+    min-height: 32px;
+    width: 100%;
+}
+
+#tah-quote-editor .tah-cell-handle .tah-line-handle:active,
+#tah-quote-editor .tah-line-item-row.ui-sortable-helper .tah-line-handle {
+    cursor: grabbing !important;
 }
 
 #tah-quote-editor .tah-col-index,
 #tah-quote-editor .tah-cell-index {
     text-align: center;
     width: 34px;
+    /* Fixed anchor */
+}
+
+/* Fallback widths for others to prevent collapse before JS loads */
+#tah-quote-editor .tah-pricing-table-editor th,
+#tah-quote-editor .tah-pricing-table-editor td {
+    min-width: 0px;
+}
+
+#tah-quote-editor .tah-pricing-table-editor input,
+#tah-quote-editor .tah-pricing-table-editor select,
+#tah-quote-editor .tah-pricing-table-editor textarea {
+    margin: 0;
+}
+
+#tah-quote-editor .tah-pricing-table-editor .tah-form-control {
+    background: #fff;
+    border: 1px solid #d0d5dd;
+    border-radius: 6px;
+    box-sizing: border-box;
+    color: #1d2939;
+    font-size: 13px;
+    line-height: 1.35;
+    min-height: 32px;
+    padding: 6px 10px;
+    width: 100%;
+}
+
+#tah-quote-editor .tah-pricing-table-editor .tah-form-control:focus {
+    border-color: #84caff;
+    box-shadow: 0 0 0 3px rgba(132, 202, 255, 0.3);
+    outline: none;
+}
+
+#tah-quote-editor .tah-line-description {
+    display: block;
+    min-height: 32px;
+    resize: none;
+}
+
+#tah-quote-editor .tah-line-item-row.is-description-expanded > td {
+    vertical-align: top;
+}
+
+/* jQuery UI Resizable Handles for Table Headers */
+#tah-quote-editor .tah-pricing-table-editor th.ui-resizable {
+    position: relative;
+    background-clip: padding-box;
+    /* Keeps borders visible */
+}
+
+#tah-quote-editor .tah-pricing-table-editor th .ui-resizable-e {
+    cursor: col-resize;
+    width: 10px;
+    right: -5px;
+    top: 0;
+    bottom: 0;
+    position: absolute;
+    z-index: 10;
+    touch-action: none;
+}
+
+/* Hover state for resize handle to act as "separator" */
+#tah-quote-editor .tah-pricing-table-editor th .ui-resizable-e:hover {
+    background: rgba(0, 115, 170, 0.2);
+    /* WP Blue hint */
+}
+
+/* Active resizing state */
+#tah-quote-editor .tah-pricing-table-editor th.ui-resizable-resizing .ui-resizable-e {
+    background: rgba(0, 115, 170, 0.5);
+    width: 4px;
+    right: -2px;
 }
 
 #tah-quote-editor .tah-col-item,
 #tah-quote-editor .tah-cell-item {
-    width: 170px;
+    /* width: 170px; - Controlled by JS/ColGroup */
 }
 
 #tah-quote-editor .tah-col-sku,
 #tah-quote-editor .tah-cell-sku {
-    width: 120px;
+    /* width: 120px; - Controlled by JS/ColGroup */
 }
 
 #tah-quote-editor .tah-col-description,
 #tah-quote-editor .tah-cell-description {
-    width: 220px;
+    /* width: 220px; - Controlled by JS/ColGroup */
 }
 
 #tah-quote-editor .tah-col-material,
@@ -678,41 +776,64 @@ body.tah-quote-editor-enabled #tah-quote-editor .postbox.closed #wp-content-edit
 #tah-quote-editor .tah-cell-labor,
 #tah-quote-editor .tah-col-tax,
 #tah-quote-editor .tah-cell-tax {
-    width: 120px;
+    text-align: right;
+    /* width: 120px; - Controlled by JS/ColGroup */
+}
+
+#tah-quote-editor .tah-cell-material input,
+#tah-quote-editor .tah-cell-labor input,
+#tah-quote-editor .tah-cell-tax input {
+    text-align: right;
 }
 
 #tah-quote-editor .tah-col-qty,
 #tah-quote-editor .tah-cell-qty {
-    width: 90px;
+    text-align: right;
+    /* width: 90px; - Controlled by JS/ColGroup */
+}
+
+#tah-quote-editor .tah-cell-qty input {
+    text-align: right;
 }
 
 #tah-quote-editor .tah-col-rate,
 #tah-quote-editor .tah-cell-rate {
-    width: 160px;
+    text-align: right;
+    /* width: 160px; - Controlled by JS/ColGroup */
+}
+
+#tah-quote-editor .tah-cell-rate input {
+    text-align: right;
 }
 
 #tah-quote-editor .tah-col-amount,
 #tah-quote-editor .tah-cell-amount {
     text-align: right;
-    width: 120px;
+    /* width: 120px; - Controlled by JS/ColGroup */
 }
 
 #tah-quote-editor .tah-col-margin,
 #tah-quote-editor .tah-cell-margin {
     text-align: right;
-    width: 95px;
+    /* width: 95px; - Controlled by JS/ColGroup */
 }
 
 #tah-quote-editor .tah-col-actions,
 #tah-quote-editor .tah-cell-actions {
     text-align: right;
-    width: 44px;
+    /* width: 44px; - Controlled by JS/ColGroup */
+}
+
+#tah-quote-editor .tah-pricing-table-editor th[data-tah-col] {
+    text-align: center;
 }
 
 #tah-quote-editor .tah-line-index {
     color: #475467;
-    display: inline-block;
+    align-items: center;
+    display: inline-flex;
     font-size: 12px;
+    min-height: 32px;
     min-width: 18px;
 }
 
@@ -722,17 +843,31 @@ body.tah-quote-editor-enabled #tah-quote-editor .postbox.closed #wp-content-edit
     gap: 6px;
 }
 
-#tah-quote-editor .tah-line-rate-badge {
-    min-width: 76px;
-    text-align: center;
+#tah-quote-editor .tah-line-rate--custom {
+    background-color: #fff8eb;
+    border-color: #f59e0b;
+}
+
+#tah-quote-editor .tah-line-qty.is-invalid,
+#tah-quote-editor .tah-line-rate.is-invalid {
+    border-color: #b42318;
+    box-shadow: 0 0 0 1px rgba(180, 35, 24, 0.12);
+    color: #b42318;
 }
 
 #tah-quote-editor .tah-line-amount,
 #tah-quote-editor .tah-line-margin {
+    align-items: center;
     color: #101828;
-    display: inline-block;
+    display: inline-flex;
     font-size: 13px;
     font-weight: 600;
+    min-height: 32px;
+}
+
+#tah-quote-editor .tah-cell-actions .tah-icon-button {
+    min-height: 32px;
+    min-width: 32px;
 }
 
 #tah-quote-editor .tah-group-footer {
@@ -766,6 +901,27 @@ body.tah-quote-editor-enabled #tah-quote-editor .postbox.closed #wp-content-edit
     display: flex;
     justify-content: space-between;
     margin-top: 12px;
+}
+
+#tah-quote-editor .tah-pricing-footer-actions {
+    align-items: center;
+    display: inline-flex;
+    gap: 8px;
+}
+
+#tah-quote-editor .tah-pricing-footer-actions .tah-admin-reset-table {
+    align-items: center;
+    display: inline-flex;
+    justify-content: center;
+    min-width: 32px;
+    padding: 0 8px;
+}
+
+#tah-quote-editor .tah-pricing-footer-actions .tah-admin-reset-table .dashicons {
+    font-size: 16px;
+    height: 16px;
+    line-height: 16px;
+    width: 16px;
 }
 
 #tah-quote-editor .tah-pricing-summary-row {
@@ -847,8 +1003,7 @@ body.tah-quote-editor-enabled #tah-quote-editor .postbox.closed #wp-content-edit
 }
 
 #tah-quote-editor #tah-quote-pricing.is-quote-format-insurance .tah-col-margin,
-#tah-quote-editor #tah-quote-pricing.is-quote-format-insurance .tah-cell-margin,
-#tah-quote-editor #tah-quote-pricing.is-quote-format-insurance .tah-line-rate-badge {
+#tah-quote-editor #tah-quote-pricing.is-quote-format-insurance .tah-cell-margin {
     display: none;
 }
 

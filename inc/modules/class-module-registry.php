@@ -26,8 +26,14 @@ final class TAH_Module_Registry
 
         self::$booted = true;
 
+        require_once __DIR__ . '/quotes/class-quotes-module.php';
+        TAH_Quotes_Module::boot();
+
         require_once __DIR__ . '/info-sections/class-info-sections-module.php';
         TAH_Info_Sections_Module::boot();
+
+        require_once __DIR__ . '/admin-table-columns/class-admin-table-columns-module.php';
+        TAH_Admin_Table_Columns_Module::boot();
 
         require_once __DIR__ . '/pricing/class-pricing-module.php';
         TAH_Pricing_Module::boot();

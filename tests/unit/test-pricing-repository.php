@@ -10,15 +10,20 @@ class MockWPDB
     public $last_query = '';
     public $last_prepare_args = [];
     public $insert_id = 1;
+    public $prepared_queries = [];
+    public $query_log = [];
+    public $insert_calls = 0;
+    public $update_calls = 0;
 
-    public function prepare($query, $args)
+    public function prepare($query, ...$args)
     {
         $this->last_query = $query;
-        $this->last_prepare_args = is_array($args) ? $args : func_get_args();
-        // Shift off the query itself
-        if (isset($this->last_prepare_args[0]) && $this->last_prepare_args[0] === $query) {
-            array_shift($this->last_prepare_args);
+        if (count($args) === 1 && is_array($args[0])) {
+            $this->last_prepare_args = $args[0];
+        } else {
+            $this->last_prepare_args = $args;
         }
+        $this->prepared_queries[] = $query;
         return $query; // In mock, we just return the query structure to check it
     }
 
@@ -34,14 +39,22 @@ class MockWPDB
         return null;
     }
 
+    public function get_col($query, $x = 0)
+    {
+        $this->last_query = $query;
+        return [];
+    }
+
     public function insert($table, $data, $format = null)
     {
+        $this->insert_calls++;
         $this->last_query = "INSERT INTO $table ...";
         return 1;
     }
 
     public function update($table, $data, $where, $format = null, $where_format = null)
     {
+        $this->update_calls++;
         $this->last_query = "UPDATE $table ...";
         return 1;
     }
@@ -49,6 +62,7 @@ class MockWPDB
     public function query($query)
     {
         $this->last_query = $query;
+        $this->query_log[] = $query;
         return 1;
     }
 
@@ -78,6 +92,10 @@ function reset_mock_db()
     global $wpdb;
     $wpdb->last_query = '';
     $wpdb->last_prepare_args = [];
+    $wpdb->prepared_queries = [];
+    $wpdb->query_log = [];
+    $wpdb->insert_calls = 0;
+    $wpdb->update_calls = 0;
 }
 
 // Load Class Under Test
@@ -91,14 +109,9 @@ function test_get_catalog_items_sql_generation()
     $repo = new TAH_Pricing_Repository();
     $repo->get_catalog_items(['search' => 'Wood']);
 
-    // Check if SQL contains search filter
-    $has_search = strpos($wpdb->last_query, '(title LIKE %s OR sku LIKE %s)') !== false;
-    Assert::true($has_search, 'SQL should contain search clause');
-
-    // Check if args were passed
-    // Note: Depends on implementation details of prepare(). 
-    // In our mock, prepare() just stores args.
-    // The Repository calls prepare with "%...%" so we verify that.
+    $has_search = strpos($wpdb->last_query, 'title LIKE %s') !== false;
+    Assert::true($has_search, 'SQL should contain title search clause');
+    Assert::same(['%Wood%'], $wpdb->last_prepare_args, 'Search value should be bound via prepare args');
 }
 
 function test_get_catalog_items_filter_active()
@@ -111,10 +124,12 @@ function test_get_catalog_items_filter_active()
     // Let's check code: "if (isset($filters['is_active']))..."
 
     $repo->get_catalog_items(['is_active' => true]);
-    Assert::true(strpos($wpdb->last_query, 'is_active = 1') !== false, 'SQL should filter by is_active=1');
+    Assert::true(strpos($wpdb->last_query, 'is_active = %d') !== false, 'SQL should include is_active placeholder');
+    Assert::same([1], $wpdb->last_prepare_args, 'Active filter should bind 1');
 
     $repo->get_catalog_items(['is_active' => false]);
-    Assert::true(strpos($wpdb->last_query, 'is_active = 0') !== false, 'SQL should filter by is_active=0');
+    Assert::true(strpos($wpdb->last_query, 'is_active = %d') !== false, 'SQL should include is_active placeholder');
+    Assert::same([0], $wpdb->last_prepare_args, 'Inactive filter should bind 0');
 }
 
 function test_get_catalog_items_sort()
@@ -144,14 +159,12 @@ function test_save_quote_groups()
         ]
     ];
 
-    // We expect:
-    // 1. DELETE FROM ... (clearing old groups not in list? Or implementation details?)
-    // 2. INSERT/UPDATE
-
     $ids = $repo->save_quote_groups($post_id, $groups);
-
-    // Check if insert was called
-    Assert::true(strpos($wpdb->last_query, 'INSERT INTO') !== false || strpos($wpdb->last_query, 'UPDATE') !== false, 'Should attempt to insert/update groups');
+    Assert::same([1], $ids, 'Insert path should return persisted group id');
+    Assert::same(1, $wpdb->insert_calls, 'Should insert one group');
+    Assert::same(0, $wpdb->update_calls, 'Should not update when input id is empty');
+    Assert::true(in_array('START TRANSACTION', $wpdb->query_log, true), 'Should open transaction');
+    Assert::true(in_array('COMMIT', $wpdb->query_log, true), 'Should commit transaction');
 }
 
 // Run Tests

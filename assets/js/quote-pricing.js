@@ -11,10 +11,15 @@
     var ajaxApplyPresetAction = String(config.ajaxApplyPresetAction || 'tah_apply_trade_pricing_preset');
     var ajaxNonce = String(config.ajaxNonce || '');
     var tradeContexts = config.tradeContexts || {};
+    var pricingTableKey = String(config.pricingTableKey || 'pricing_editor');
+    var descriptionCollapsedHeightPx = 32;
+    var descriptionExpandedMinHeightPx = 64;
 
     var groupCounter = 1;
     var saveStatusTimer = null;
+    var autoSaveTimer = null;
     var isAjaxSaving = false;
+    var hasPendingAjaxSave = false;
 
     function escHtml(text) {
         var div = document.createElement('div');
@@ -48,6 +53,65 @@
             return 'insurance';
         }
         return 'standard';
+    }
+
+    function getPricingTemplateHeadHtml() {
+        var template = document.getElementById('tah-pricing-table-head-template');
+        if (!template || !template.innerHTML) {
+            return '';
+        }
+
+        return String(template.innerHTML);
+    }
+
+    function extractColumnOrderFromHeadHtml(headHtml) {
+        var html = String(headHtml || '').trim();
+        if (html === '') {
+            return [];
+        }
+
+        var wrapper = document.createElement('table');
+        wrapper.innerHTML = html;
+
+        var order = [];
+        wrapper.querySelectorAll('thead th[data-tah-col]').forEach(function (th) {
+            var key = String(th.getAttribute('data-tah-col') || '');
+            if (key) {
+                order.push(key);
+            }
+        });
+        return order;
+    }
+
+    function getCurrentPricingColumnOrder() {
+        var $firstTable = $('.tah-pricing-table-editor').first();
+        var domOrder = [];
+        if ($firstTable.length) {
+            $firstTable.find('thead th').each(function () {
+                var key = String($(this).attr('data-tah-col') || '');
+                if (key) {
+                    domOrder.push(key);
+                }
+            });
+        }
+        if (domOrder.length) {
+            return domOrder;
+        }
+
+        var templateOrder = extractColumnOrderFromHeadHtml(getPricingTemplateHeadHtml());
+        if (templateOrder.length) {
+            return templateOrder;
+        }
+
+        return [];
+    }
+
+    function getPricingTableHeaderHtml() {
+        var $firstHeader = $('.tah-pricing-table-editor thead').first();
+        if ($firstHeader.length) {
+            return '<thead>' + $firstHeader.html() + '</thead>';
+        }
+        return getPricingTemplateHeadHtml();
     }
 
     function getSelectedQuoteFormat() {
@@ -115,7 +179,7 @@
         var raw = String(input || '').trim();
 
         if (raw === '' || raw === '$') {
-            return { mode: 'default', modifier: 0 };
+            return { mode: 'default', modifier: 0, normalizedFormula: '$', valid: true };
         }
 
         var addMatch = raw.match(/^\$\s*([+-])\s*(\d+(?:\.\d+)?)$/);
@@ -124,20 +188,45 @@
             if (addMatch[1] === '-') {
                 addModifier = addModifier * -1;
             }
-            return { mode: 'addition', modifier: addModifier };
+            return { mode: 'addition', modifier: addModifier, normalizedFormula: raw, valid: true };
         }
 
         var pctMatch = raw.match(/^\$\s*\*\s*([+-]?\d+(?:\.\d+)?)$/);
         if (pctMatch) {
-            return { mode: 'percentage', modifier: Number(pctMatch[1]) };
+            return { mode: 'percentage', modifier: Number(pctMatch[1]), normalizedFormula: raw, valid: true };
         }
 
         var fixedMatch = raw.match(/^[+-]?\d+(?:\.\d+)?$/);
         if (fixedMatch) {
-            return { mode: 'override', modifier: Number(raw) };
+            return { mode: 'override', modifier: Number(raw), normalizedFormula: raw, valid: true };
         }
 
-        return { mode: 'default', modifier: 0 };
+        var mathExpression = evaluateMathExpression(raw, NaN);
+        if (mathExpression.valid) {
+            var normalized = compactNumber(mathExpression.value);
+            return { mode: 'override', modifier: mathExpression.value, normalizedFormula: normalized, valid: true };
+        }
+
+        return { mode: 'default', modifier: 0, normalizedFormula: raw, valid: false };
+    }
+
+    function setFormulaFieldValidity($field, isValid) {
+        if (!$field || !$field.length) {
+            return;
+        }
+
+        if (isValid) {
+            $field.removeClass('is-invalid');
+            $field.attr('aria-invalid', 'false');
+            return;
+        }
+
+        $field.addClass('is-invalid');
+        $field.attr('aria-invalid', 'true');
+    }
+
+    function hasInvalidFormulaFields() {
+        return $('#tah-quote-pricing').find('.tah-line-qty.is-invalid, .tah-line-rate.is-invalid').length > 0;
     }
 
     function applyRounding(value) {
@@ -223,85 +312,222 @@
         };
     }
 
-    function rateBadge(mode, pricingItemId) {
-        if (!pricingItemId || mode === 'override') {
-            return {
-                label: labels.customBadge || 'CUSTOM',
-                cls: 'tah-badge--custom'
-            };
+    function isCustomRateState(pricingItemId, resolvedRate, basePrice) {
+        if (!pricingItemId || pricingItemId <= 0) {
+            return false;
         }
 
-        if (mode === 'default') {
-            return {
-                label: labels.defaultBadge || 'DEFAULT',
-                cls: 'tah-badge--neutral'
-            };
-        }
-
-        return {
-            label: labels.modifiedBadge || 'MODIFIED',
-            cls: 'tah-badge--accent'
-        };
+        var resolved = normalizeNumber(resolvedRate, 0);
+        var base = normalizeNumber(basePrice, 0);
+        return Math.abs(resolved - base) >= 0.005;
     }
 
     function dragHandleSvg() {
         return '<svg viewBox="0 0 32 32" class="svg-icon"><path d="M 14 5.5 a 3 3 0 1 1 -3 -3 A 3 3 0 0 1 14 5.5 Z m 7 3 a 3 3 0 1 0 -3 -3 A 3 3 0 0 0 21 8.5 Z m -10 4 a 3 3 0 1 0 3 3 A 3 3 0 0 0 11 12.5 Z m 10 0 a 3 3 0 1 0 3 3 A 3 3 0 0 0 21 12.5 Z m -10 10 a 3 3 0 1 0 3 3 A 3 3 0 0 0 11 22.5 Z m 10 0 a 3 3 0 1 0 3 3 A 3 3 0 0 0 21 22.5 Z"></path></svg>';
     }
 
+    function createRowFromTemplate() {
+        var template = document.getElementById('tah-pricing-row-template');
+        if (!template || !template.innerHTML) {
+            return null;
+        }
+
+        var wrapper = document.createElement('tbody');
+        wrapper.innerHTML = String(template.innerHTML).trim();
+        var row = wrapper.querySelector('tr.tah-line-item-row');
+        return row ? row.cloneNode(true) : null;
+    }
+
+    function reorderRowCells($row, order) {
+        var rowNode = $row.get(0);
+        if (!rowNode) {
+            return;
+        }
+
+        var cellMap = {};
+        Array.prototype.slice.call(rowNode.children).forEach(function (cell) {
+            var key = String(cell.getAttribute('data-tah-col') || '');
+            if (key && !cellMap[key]) {
+                cellMap[key] = cell;
+            }
+        });
+
+        var finalOrder = [];
+        var seen = {};
+        order.forEach(function (key) {
+            if (!key || seen[key] || !cellMap[key]) {
+                return;
+            }
+            seen[key] = true;
+            finalOrder.push(key);
+        });
+        Object.keys(cellMap).forEach(function (key) {
+            if (seen[key] || !cellMap[key]) {
+                return;
+            }
+            seen[key] = true;
+            finalOrder.push(key);
+        });
+
+        finalOrder.forEach(function (key) {
+            rowNode.appendChild(cellMap[key]);
+        });
+    }
+
     function buildRowHtml(data) {
-        var title = escHtml(data.title == null ? '' : data.title);
-        var description = escHtml(data.description || data.note || '');
+        var title = data.title == null ? '' : String(data.title);
+        var description = String(data.description || data.note || '');
         var qty = normalizeNumber(data.quantity, 1);
         var pricingItemId = parseInt(String(data.pricingItemId || 0), 10) || 0;
-        var unitType = escHtml(data.unitType || 'flat');
-        var itemType = escHtml(data.itemType || 'standard');
+        var unitType = String(data.unitType || 'flat');
+        var itemType = String(data.itemType || 'standard');
         var catalogPrice = normalizeNumber(data.catalogPrice, 0);
         var rateResolved = normalizeNumber(data.resolvedPrice, 0);
-        var rateFormulaRaw = String(data.rateFormula || (pricingItemId > 0 ? '$' : compactNumber(rateResolved)));
-        var rateFormula = escHtml(rateFormulaRaw);
-        var qtyFormula = escHtml(data.qtyFormula || compactNumber(qty));
-        var badgeMeta = rateBadge(parseRateFormula(rateFormulaRaw).mode, pricingItemId);
-        var lineSku = escHtml(data.lineSku || '');
+        var rateFormula = String(data.rateFormula || (pricingItemId > 0 ? '$' : compactNumber(rateResolved)));
+        var qtyFormula = String(data.qtyFormula || compactNumber(qty));
+        var customRateClass = isCustomRateState(pricingItemId, rateResolved, catalogPrice)
+            ? ' tah-line-rate--custom'
+            : '';
+        var lineSku = String(data.lineSku || '');
         var materialCost = data.materialCost == null || data.materialCost === ''
             ? ''
-            : escHtml(compactNumber(normalizeNumber(data.materialCost, 0)));
+            : compactNumber(normalizeNumber(data.materialCost, 0));
         var laborCost = data.laborCost == null || data.laborCost === ''
             ? ''
-            : escHtml(compactNumber(normalizeNumber(data.laborCost, 0)));
-        var taxRate = escHtml(data.taxRate == null ? '' : String(data.taxRate));
-        var note = escHtml(data.note || '');
+            : compactNumber(normalizeNumber(data.laborCost, 0));
+        var taxRate = data.taxRate == null ? '' : String(data.taxRate);
+        var note = String(data.note || '');
 
-        return '' +
-            '<tr class="tah-line-item-row" data-item-id="0">' +
-            '<td class="tah-cell-handle"><span class="tah-drag-handle tah-line-handle" aria-hidden="true">' + dragHandleSvg() + '</span></td>' +
-            '<td class="tah-cell-index"><span class="tah-line-index">1</span></td>' +
-            '<td class="tah-cell-item">' +
-            '<input type="text" class="tah-form-control tah-line-title" value="' + title + '" placeholder="Line item">' +
-            '<input type="hidden" class="tah-line-id" value="0">' +
-            '<input type="hidden" class="tah-line-pricing-item-id" value="' + escHtml(String(pricingItemId)) + '">' +
-            '<input type="hidden" class="tah-line-item-type" value="' + itemType + '">' +
-            '<input type="hidden" class="tah-line-unit-type" value="' + unitType + '">' +
-            '<input type="hidden" class="tah-line-is-selected" value="1">' +
-            '<input type="hidden" class="tah-line-note" value="' + note + '">' +
-            '<input type="hidden" class="tah-line-previous-resolved-price" value="">' +
-            '</td>' +
-            '<td class="tah-cell-sku tah-cell-insurance"><input type="text" class="tah-form-control tah-line-line-sku" value="' + lineSku + '" placeholder="SKU"></td>' +
-            '<td class="tah-cell-description"><button type="button" class="button-link tah-line-note-toggle tah-cell-insurance" aria-label="Toggle F9 note" title="Toggle F9 note">F9</button><input type="text" class="tah-form-control tah-line-description" value="' + description + '" placeholder="Description"></td>' +
-            '<td class="tah-cell-material tah-cell-insurance"><input type="number" step="0.01" class="tah-form-control tah-line-material-cost" value="' + materialCost + '" placeholder="0.00"></td>' +
-            '<td class="tah-cell-labor tah-cell-insurance"><input type="number" step="0.01" class="tah-form-control tah-line-labor-cost" value="' + laborCost + '" placeholder="0.00"></td>' +
-            '<td class="tah-cell-qty"><input type="text" class="tah-form-control tah-line-qty" value="' + compactNumber(qty) + '" data-formula="' + qtyFormula + '" data-resolved="' + compactNumber(qty) + '"></td>' +
-            '<td class="tah-cell-rate">' +
-            '<div class="tah-rate-field">' +
-            '<input type="text" class="tah-form-control tah-line-rate" value="' + escHtml(formatCurrency(rateResolved)) + '" data-formula="' + rateFormula + '" data-resolved="' + compactNumber(rateResolved) + '">' +
-            '<span class="tah-badge ' + escHtml(badgeMeta.cls) + ' tah-line-rate-badge">' + escHtml(badgeMeta.label) + '</span>' +
-            '<input type="hidden" class="tah-line-catalog-price" value="' + escHtml(compactNumber(catalogPrice)) + '">' +
-            '</div>' +
-            '</td>' +
-            '<td class="tah-cell-tax tah-cell-insurance"><input type="number" step="0.0001" min="0" class="tah-form-control tah-line-tax-rate" value="' + taxRate + '" placeholder="Quote default"><span class="tah-line-tax-amount">$0.00</span></td>' +
-            '<td class="tah-cell-amount"><span class="tah-line-amount" data-amount="' + compactNumber(qty * rateResolved) + '">' + escHtml(formatCurrency(qty * rateResolved)) + '</span></td>' +
-            '<td class="tah-cell-margin"><span class="tah-line-margin">--</span></td>' +
-            '<td class="tah-cell-actions"><button type="button" class="tah-icon-button tah-icon-button--danger tah-delete-line" aria-label="Delete line item" title="Delete line item"><span class="dashicons dashicons-trash" aria-hidden="true"></span></button></td>' +
-            '</tr>';
+        // Determine Order from existing table headers (if present in DOM)
+        // This ensures that when we add a NEW row, it matches the User's sorted order.
+        var order = getCurrentPricingColumnOrder();
+        if (!order.length) {
+            console.error('TAH Quote Pricing: Unable to resolve pricing column order.');
+            return '';
+        }
+
+        var rowElement = createRowFromTemplate();
+        if (!rowElement) {
+            console.error('TAH Quote Pricing: Row template is missing or invalid.');
+            return '';
+        }
+
+        var $row = $(rowElement);
+        reorderRowCells($row, order);
+
+        var amount = qty * rateResolved;
+        var $rateInput = $row.find('.tah-line-rate');
+        $row.attr('data-item-id', '0');
+        $row.find('.tah-line-index').text('1');
+        $row.find('.tah-line-title').val(title);
+        $row.find('.tah-line-id').val('0');
+        $row.find('.tah-line-pricing-item-id').val(String(pricingItemId));
+        $row.find('.tah-line-item-type').val(itemType);
+        $row.find('.tah-line-unit-type').val(unitType);
+        $row.find('.tah-line-is-selected').val('1');
+        $row.find('.tah-line-note').val(note);
+        $row.find('.tah-line-previous-resolved-price').val('');
+        $row.find('.tah-line-line-sku').val(lineSku);
+        $row.find('.tah-line-description').val(description);
+        $row.find('.tah-line-material-cost').val(materialCost);
+        $row.find('.tah-line-labor-cost').val(laborCost);
+        $row.find('.tah-line-qty')
+            .val(compactNumber(qty))
+            .attr('data-formula', qtyFormula)
+            .attr('data-resolved', compactNumber(qty));
+        $rateInput
+            .val(formatCurrency(rateResolved))
+            .attr('data-formula', rateFormula)
+            .attr('data-resolved', compactNumber(rateResolved))
+            .removeClass('tah-line-rate--custom')
+            .addClass(customRateClass.trim());
+        $row.find('.tah-line-catalog-price').val(compactNumber(catalogPrice));
+        $row.find('.tah-line-tax-rate').val(taxRate);
+        $row.find('.tah-line-tax-amount').text('$0.00');
+        $row.find('.tah-line-amount')
+            .attr('data-amount', compactNumber(amount))
+            .text(formatCurrency(amount));
+        $row.find('.tah-line-margin').text('--');
+
+        return $row.get(0).outerHTML;
+    }
+
+    function collapseDescriptionField($field) {
+        if (!$field || !$field.length) {
+            return;
+        }
+
+        var $row = $field.closest('.tah-line-item-row');
+        if ($row.length) {
+            $row.removeClass('is-description-expanded');
+        }
+
+        $field.css({
+            height: descriptionCollapsedHeightPx + 'px',
+            minHeight: descriptionCollapsedHeightPx + 'px',
+            overflowY: 'hidden'
+        });
+    }
+
+    function expandDescriptionField($field) {
+        if (!$field || !$field.length) {
+            return;
+        }
+
+        var element = $field.get(0);
+        if (!element) {
+            return;
+        }
+
+        var $row = $field.closest('.tah-line-item-row');
+        if ($row.length) {
+            $row.addClass('is-description-expanded');
+        }
+
+        element.style.height = 'auto';
+        var nextHeight = Math.max(descriptionExpandedMinHeightPx, Math.ceil(element.scrollHeight || 0));
+        if (!nextHeight || !Number.isFinite(nextHeight)) {
+            nextHeight = descriptionExpandedMinHeightPx;
+        }
+
+        $field.css({
+            height: nextHeight + 'px',
+            minHeight: descriptionExpandedMinHeightPx + 'px',
+            overflowY: 'hidden'
+        });
+    }
+
+    function syncDescriptionFieldHeight($field) {
+        if (!$field || !$field.length) {
+            return;
+        }
+
+        var element = $field.get(0);
+        if (!element) {
+            return;
+        }
+
+        $field.css({
+            minHeight: descriptionCollapsedHeightPx + 'px',
+            height: 'auto',
+            overflowY: 'hidden'
+        });
+        var scrollHeight = Math.ceil(element.scrollHeight || 0);
+        var shouldExpand = scrollHeight > (descriptionCollapsedHeightPx + 1);
+
+        if (shouldExpand) {
+            expandDescriptionField($field);
+            return;
+        }
+
+        collapseDescriptionField($field);
+    }
+
+    function initDescriptionFields($scope) {
+        var $context = $scope && $scope.length ? $scope : $(document);
+        $context.find('.tah-line-description').each(function () {
+            collapseDescriptionField($(this));
+        });
     }
 
     function buildGroupHtml(groupKey, groupData) {
@@ -314,8 +540,8 @@
         }
         var showSubtotal = group.showSubtotal !== false;
         var isCollapsed = !!group.isCollapsed;
-        var toggleLabel = isCollapsed ? 'Expand group' : 'Collapse group';
-        var toggleIcon = isCollapsed ? 'dashicons-arrow-down-alt2' : 'dashicons-arrow-up-alt2';
+        var toggleLabel = 'Collapse group';
+        var toggleIcon = 'dashicons-arrow-up-alt2';
         var rowsHtml = '';
         var items = Array.isArray(group.items) ? group.items : [];
 
@@ -343,7 +569,8 @@
             }).join('');
         }
         var subtotalHiddenClass = showSubtotal ? '' : ' style="display:none;"';
-        var groupClasses = isCollapsed ? 'tah-group-card is-collapsed' : 'tah-group-card';
+        var groupClasses = 'tah-group-card';
+        var quoteVariant = normalizeQuoteFormat(getSelectedQuoteFormat());
 
         return '' +
             '<section class="' + groupClasses + '" data-group-id="0" data-group-key="' + escHtml(groupKey) + '">' +
@@ -368,8 +595,8 @@
             '</div>' +
             '</header>' +
             '<div class="tah-group-table-wrap">' +
-            '<table class="tah-pricing-table-editor">' +
-            '<thead><tr><th class="tah-col-handle"></th><th class="tah-col-index">#</th><th class="tah-col-item">Item</th><th class="tah-col-sku tah-col-insurance">SKU</th><th class="tah-col-description" data-standard-label="Description" data-insurance-label="F9 Note">Description</th><th class="tah-col-material tah-col-insurance">Material</th><th class="tah-col-labor tah-col-insurance">Labor</th><th class="tah-col-qty">Qty</th><th class="tah-col-rate" data-standard-label="Rate" data-insurance-label="Unit Price">Rate</th><th class="tah-col-tax tah-col-insurance">Tax</th><th class="tah-col-amount">Amount</th><th class="tah-col-margin">Margin</th><th class="tah-col-actions"></th></tr></thead>' +
+            '<table class="tah-pricing-table-editor tah-resizable-table" data-tah-table="' + pricingTableKey + '" data-tah-variant="' + quoteVariant + '">' +
+            getPricingTableHeaderHtml() +
             '<tbody class="tah-line-items-body">' + rowsHtml + '</tbody>' +
             '</table>' +
             '<div class="tah-group-footer">' +
@@ -431,13 +658,15 @@
         });
 
         if (!$primaryBody.find('.tah-line-item-row').length) {
-            $primaryBody.append(buildRowHtml({
+            var $newPrimaryRow = $(buildRowHtml({
                 title: '',
                 quantity: 1,
                 resolvedPrice: 0,
                 rateFormula: '0',
                 qtyFormula: '1'
             }));
+            $primaryBody.append($newPrimaryRow);
+            $(document).trigger('tah:table_row_added', [$newPrimaryRow]);
         }
 
         $primary.find('.tah-group-name').val(labels.insuranceGroupName || 'Insurance Items');
@@ -524,7 +753,11 @@
             var $th = $(this);
             var next = useInsurance ? $th.attr('data-insurance-label') : $th.attr('data-standard-label');
             if (next) {
+                var $resizeHandle = $th.children('.tah-admin-resize-handle').detach();
                 $th.text(next);
+                if ($resizeHandle.length) {
+                    $th.append($resizeHandle);
+                }
             }
         });
     }
@@ -536,6 +769,7 @@
 
         $editor.attr('data-quote-format', normalizedFormat);
         $editor.toggleClass('is-quote-format-insurance', isInsurance);
+        $editor.find('.tah-pricing-table-editor').attr('data-tah-variant', normalizedFormat);
         $editor.find('.tah-insurance-tax-rate-field').toggle(isInsurance);
         $editor.find('.tah-pricing-insurance-hint').toggle(isInsurance);
 
@@ -550,6 +784,7 @@
         updateTableHeaderLabels(normalizedFormat);
         applyTradeContextFilter(normalizedFormat);
         refreshTotals();
+        $(document).trigger('tah:table_layout_changed', [$editor.find('.tah-pricing-table-editor')]);
     }
 
     function applyPresetToEditor(groups) {
@@ -565,6 +800,11 @@
             $groupsWrap.append(buildGroupHtml('group-new-' + Date.now() + '-' + groupCounter, null));
             initLineSortable($groupsWrap);
             initAutocomplete($groupsWrap);
+            initDescriptionFields($groupsWrap);
+            // Announce new table to the Admin Table Manager
+            $groupsWrap.find('.tah-pricing-table-editor').last().each(function () {
+                $(document).trigger('tah:table_added', [$(this)]);
+            });
             refreshTotals();
             return;
         }
@@ -596,6 +836,11 @@
 
         initLineSortable($groupsWrap);
         initAutocomplete($groupsWrap);
+        initDescriptionFields($groupsWrap);
+        // Announce new tables to the Admin Table Manager
+        $groupsWrap.find('.tah-pricing-table-editor').each(function () {
+            $(document).trigger('tah:table_added', [$(this)]);
+        });
         refreshTotals();
     }
 
@@ -685,6 +930,8 @@
             $insuranceRateInput.attr('data-formula', compactNumber(unitPrice));
             $insuranceRateInput.attr('data-resolved', compactNumber(unitPrice));
             $insuranceRateInput.val(formatCurrency(unitPrice));
+            $insuranceRateInput.removeClass('tah-line-rate--custom');
+            setFormulaFieldValidity($insuranceRateInput, true);
 
             return {
                 parsed: { mode: 'override', modifier: unitPrice },
@@ -696,22 +943,36 @@
         }
 
         var $rateInput = $row.find('.tah-line-rate');
-        var $badge = $row.find('.tah-line-rate-badge');
         var basePrice = normalizeNumber($row.find('.tah-line-catalog-price').val(), 0);
         var previousResolved = normalizeNumber($rateInput.attr('data-resolved'), 0);
         var formulaRaw = getFieldFormula($rateInput);
         var parsed = parseRateFormula(formulaRaw);
         var pricingItemId = parseInt(String($row.find('.tah-line-pricing-item-id').val() || '0'), 10) || 0;
-        var resolved = resolveRate(parsed, basePrice, previousResolved);
-        var badge = rateBadge(parsed.mode, pricingItemId);
+        if (!parsed.valid) {
+            var invalidFallback = previousResolved;
+            setFormulaFieldValidity($rateInput, false);
+            $rateInput.attr('data-formula', formulaRaw === '' ? '$' : formulaRaw);
+            $rateInput.attr('data-resolved', compactNumber(invalidFallback));
+            if (!$rateInput.is(':focus')) {
+                $rateInput.val(formulaRaw === '' ? '$' : formulaRaw);
+            }
+            $rateInput.toggleClass('tah-line-rate--custom', isCustomRateState(pricingItemId, invalidFallback, basePrice));
 
-        $rateInput.attr('data-formula', formulaRaw === '' ? '$' : formulaRaw);
+            return {
+                parsed: parsed,
+                resolved: invalidFallback
+            };
+        }
+
+        setFormulaFieldValidity($rateInput, true);
+        var resolved = resolveRate(parsed, basePrice, previousResolved);
+
+        $rateInput.attr('data-formula', String(parsed.normalizedFormula || (formulaRaw === '' ? '$' : formulaRaw)));
         $rateInput.attr('data-resolved', compactNumber(resolved));
         if (!$rateInput.is(':focus')) {
             $rateInput.val(formatCurrency(resolved));
         }
-
-        $badge.removeClass('tah-badge--neutral tah-badge--accent tah-badge--custom').addClass(badge.cls).text(badge.label);
+        $rateInput.toggleClass('tah-line-rate--custom', isCustomRateState(pricingItemId, resolved, basePrice));
 
         return {
             parsed: parsed,
@@ -724,7 +985,17 @@
         var fallback = normalizeNumber($qtyInput.attr('data-resolved'), 0);
         var formulaRaw = getFieldFormula($qtyInput);
         var result = evaluateMathExpression(formulaRaw, fallback);
+        if (!result.valid) {
+            setFormulaFieldValidity($qtyInput, false);
+            $qtyInput.attr('data-formula', formulaRaw === '' ? compactNumber(fallback) : formulaRaw);
+            $qtyInput.attr('data-resolved', compactNumber(fallback));
+            if (!$qtyInput.is(':focus')) {
+                $qtyInput.val(formulaRaw === '' ? compactNumber(fallback) : formulaRaw);
+            }
+            return fallback;
+        }
 
+        setFormulaFieldValidity($qtyInput, true);
         $qtyInput.attr('data-formula', result.formula === '' ? compactNumber(result.value) : result.formula);
         $qtyInput.attr('data-resolved', compactNumber(result.value));
         if (!$qtyInput.is(':focus')) {
@@ -898,6 +1169,8 @@
             return null;
         }
 
+        $(document).trigger('tah:table_row_added', [$newRow]);
+        initDescriptionFields($newRow);
         prepareRowForCurrentFormat($newRow);
         refreshTotals();
         return $newRow;
@@ -1029,12 +1302,24 @@
             return false;
         }
 
-        if (isAjaxSaving) {
-            return true;
+        if (autoSaveTimer) {
+            clearTimeout(autoSaveTimer);
+            autoSaveTimer = null;
         }
 
         var payload = serializeForSubmit();
 
+        if (hasInvalidFormulaFields()) {
+            setSaveStatus('error', labels.invalidFormula || 'Invalid formula');
+            return false;
+        }
+
+        if (isAjaxSaving) {
+            hasPendingAjaxSave = true;
+            return true;
+        }
+
+        hasPendingAjaxSave = false;
         isAjaxSaving = true;
         setSaveStatus('saving');
 
@@ -1062,9 +1347,43 @@
             setSaveStatus('error', labels.saveError || 'Save failed');
         }).always(function () {
             isAjaxSaving = false;
+            if (hasPendingAjaxSave) {
+                hasPendingAjaxSave = false;
+                saveDraftAjax();
+            }
         });
 
         return true;
+    }
+
+    function scheduleDraftSave() {
+        var quoteId = getEditorQuoteId();
+        if (quoteId <= 0 || !ajaxUrl || !ajaxNonce) {
+            return;
+        }
+
+        if (autoSaveTimer) {
+            clearTimeout(autoSaveTimer);
+        }
+
+        autoSaveTimer = window.setTimeout(function () {
+            autoSaveTimer = null;
+            saveDraftAjax();
+        }, 260);
+    }
+
+    function commitFormulaFromInput($field, fallbackFormula) {
+        if (!$field || !$field.length) {
+            return;
+        }
+
+        var raw = String($field.val() || '').trim();
+        if (raw === '') {
+            $field.attr('data-formula', String(fallbackFormula || ''));
+            return;
+        }
+
+        $field.attr('data-formula', raw);
     }
 
     function normalizeCatalogPrice(value) {
@@ -1202,7 +1521,7 @@
         });
     }
 
-    $(function () {
+        $(function () {
         if (!$('#tah-quote-pricing').length) {
             return;
         }
@@ -1211,8 +1530,9 @@
         initLineSortable($('#tah-quote-pricing'));
         initAutocomplete($('#tah-quote-pricing'));
 
-        applyQuoteFormatUi(getSelectedQuoteFormat());
-        refreshTotals();
+            applyQuoteFormatUi(getSelectedQuoteFormat());
+            initDescriptionFields($('#tah-quote-pricing'));
+            refreshTotals();
 
         $(document).on('focus', '.tah-line-qty', function () {
             var $input = $(this);
@@ -1221,7 +1541,9 @@
         });
 
         $(document).on('blur', '.tah-line-qty', function () {
+            commitFormulaFromInput($(this), '0');
             refreshTotals();
+            scheduleDraftSave();
         });
 
         $(document).on('focus', '.tah-line-rate', function () {
@@ -1234,11 +1556,35 @@
         });
 
         $(document).on('blur', '.tah-line-rate', function () {
+            commitFormulaFromInput($(this), '$');
             refreshTotals();
+            scheduleDraftSave();
+        });
+
+        $(document).on('input', '.tah-line-qty, .tah-line-rate', function () {
+            setFormulaFieldValidity($(this), true);
+            if (!isAjaxSaving) {
+                setSaveStatus('clear');
+            }
         });
 
         $(document).on('change input', '.tah-group-show-subtotal, .tah-group-collapsed, .tah-group-selection-mode, .tah-line-title, .tah-line-description, .tah-line-line-sku, .tah-line-material-cost, .tah-line-labor-cost, .tah-line-tax-rate, #tah-quote-tax-rate', function () {
             refreshTotals();
+        });
+
+        $(document).on('focus', '.tah-line-description', function () {
+            syncDescriptionFieldHeight($(this));
+        });
+
+        $(document).on('input', '.tah-line-description', function () {
+            var $field = $(this);
+            if ($field.is(':focus')) {
+                syncDescriptionFieldHeight($field);
+            }
+        });
+
+        $(document).on('blur', '.tah-line-description', function () {
+            collapseDescriptionField($(this));
         });
 
         $(document).on('click', '.tah-line-note-toggle', function (event) {
@@ -1266,8 +1612,10 @@
                 qtyFormula: '1'
             }));
             $tbody.append($row);
+            $(document).trigger('tah:table_row_added', [$row]);
             initLineSortable($group);
             initAutocomplete($group);
+            initDescriptionFields($row);
             prepareRowForCurrentFormat($row);
             refreshTotals();
             $row.find('.tah-line-title').trigger('focus');
@@ -1279,14 +1627,17 @@
             $(this).closest('.tah-line-item-row').remove();
 
             if (!$group.find('.tah-line-item-row').length) {
-                $group.find('.tah-line-items-body').append(buildRowHtml({
+                var $newRow = $(buildRowHtml({
                     title: '',
                     quantity: 1,
                     resolvedPrice: 0,
                     rateFormula: '0',
                     qtyFormula: '1'
                 }));
-                prepareRowForCurrentFormat($group.find('.tah-line-item-row').last());
+                $group.find('.tah-line-items-body').append($newRow);
+                $(document).trigger('tah:table_row_added', [$newRow]);
+                initDescriptionFields($newRow);
+                prepareRowForCurrentFormat($newRow);
                 initLineSortable($group);
             }
 
@@ -1307,7 +1658,6 @@
 
             $group.toggleClass('is-collapsed');
             var isCollapsed = $group.hasClass('is-collapsed');
-            $group.find('.tah-group-collapsed').prop('checked', isCollapsed);
 
             if (isCollapsed) {
                 $icon.removeClass('dashicons-arrow-up-alt2').addClass('dashicons-arrow-down-alt2');
@@ -1316,23 +1666,11 @@
                 $icon.removeClass('dashicons-arrow-down-alt2').addClass('dashicons-arrow-up-alt2');
                 $toggle.attr('aria-label', labels.collapse || 'Collapse group').attr('title', labels.collapse || 'Collapse group');
             }
+
+            $(document).trigger('tah:table_layout_changed', [$group.find('table')]);
         });
 
-        $(document).on('change', '.tah-group-collapsed', function () {
-            var $group = $(this).closest('.tah-group-card');
-            var isCollapsed = $(this).is(':checked');
-            $group.toggleClass('is-collapsed', isCollapsed);
-            var $toggle = $group.find('.tah-toggle-group');
-            var $icon = $toggle.find('.dashicons');
-
-            if (isCollapsed) {
-                $icon.removeClass('dashicons-arrow-up-alt2').addClass('dashicons-arrow-down-alt2');
-            } else {
-                $icon.removeClass('dashicons-arrow-down-alt2').addClass('dashicons-arrow-up-alt2');
-            }
-        });
-
-        $(document).on('keydown', '.tah-line-title, .tah-line-description, .tah-line-qty, .tah-line-rate', function (event) {
+        $(document).on('keydown', '.tah-line-title, .tah-line-qty, .tah-line-rate', function (event) {
             if (event.key !== 'Enter') {
                 return;
             }
@@ -1352,8 +1690,11 @@
             var key = 'group-new-' + Date.now() + '-' + groupCounter;
             var $group = $(buildGroupHtml(key));
             $('#tah-pricing-groups').append($group);
+            // Announce new table to Admin Table Manager
+            $(document).trigger('tah:table_added', [$group.find('table')]);
             initLineSortable($group);
             initAutocomplete($group);
+            initDescriptionFields($group);
             refreshTotals();
             $group.find('.tah-group-name').trigger('focus');
         });

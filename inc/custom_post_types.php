@@ -10,5 +10,4 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/cpt/equipment.php';
 require_once __DIR__ . '/cpt/projects.php';
-require_once __DIR__ . '/cpt/quotes.php';
 require_once __DIR__ . '/cpt/vehicles.php';

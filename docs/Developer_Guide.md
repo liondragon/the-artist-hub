@@ -40,7 +40,10 @@ This repo has a few theme subsystems that are easy to break via load-order or Wo
 ### Registry
 - `inc/modules/class-module-registry.php` — `TAH_Module_Registry::boot()`
 - Idempotent (static `$booted` guard)
-- Modules are loaded in **explicit, fixed order** — currently Info Sections + Pricing
+- Modules are loaded in **explicit, fixed order** — currently Quotes + Info Sections + Admin Table Columns + Pricing
+- Admin Table Columns context routing is hook-based via `tah_admin_table_context_screen_id` (Quote screen maps to `tah-quote-editor` in `class-quote-edit-screen.php`).
+- Table definitions are registered via `tah_admin_table_registry` (Quote screen registers `pricing_editor` in `class-quote-edit-screen.php`; Pricing Catalog page registers `pricing_catalog` in `class-pricing-catalog-admin.php`).
+- Admin table scripts are split by responsibility under `assets/js/`: `admin-tables-constants.js`, `admin-tables-core.js`, `admin-tables-store.js`, `admin-tables-interaction.js`.
 
 ### Module Contract (Conventions)
 Each module must provide:
@@ -55,6 +58,134 @@ Each module must provide:
    - Example: `apply_filters('tah_module_<module>_enabled', true)`
 5. Register the module in `inc/modules/class-module-registry.php` (explicit order).
 6. Update this document with the module purpose and entry points.
+
+---
+
+## Admin Table Columns Module
+
+### Purpose
+Provide one reusable admin-table system for column resizing/reordering and per-user persistence across CRM screens.
+
+### Entry Points
+- Bootstrap: `inc/modules/admin-table-columns/class-admin-table-columns-module.php`
+- Config + persistence: `inc/modules/admin-table-columns/class-admin-table-config.php`
+- Pure registration helper: `TAH_Admin_Table_Columns_Module::register_admin_table(...)` (returns screen-scoped table map; final normalization happens in `TAH_Admin_Table_Config`)
+- Screen context mapping hook: `tah_admin_table_context_screen_id` (optional override; default fallback is `get_current_screen()->id`)
+  - Quote screen mapping is implemented in `inc/modules/pricing/class-quote-edit-screen.php` (`map_admin_table_context_screen_id()`).
+- Table registry hook: `tah_admin_table_registry`
+  - Quote table registration is implemented in `inc/modules/pricing/class-quote-edit-screen.php` (`register_table_config()`).
+  - Quote pricing column keys + behavioral flags (`locked`, `orderable`, `resizable`) are defined once in `TAH_Quote_Edit_Screen::get_pricing_editor_column_contract()`.
+
+### Runtime Flow
+1. `admin_enqueue_scripts` runs in `TAH_Admin_Table_Columns_Module::enqueue_assets()`.
+2. Module resolves current table context (`screen_id`) through `tah_admin_table_context_screen_id`; if no module maps one, fallback is `get_current_screen()->id`.
+3. Module asks `TAH_Admin_Table_Config` for screen config and user prefs; registry config is normalized into one canonical shape before localization.
+4. Module registers/enqueues JS in order:
+   - `assets/js/admin-tables-constants.js`
+   - `assets/js/admin-tables-store.js`
+   - `assets/js/admin-tables-interaction.js`
+   - `assets/js/admin-tables-core.js`
+5. Module localizes `tahAdminTablesConfig` (`screenId`, `config`, `nonce`) to `tah-admin-tables`.
+6. Module injects `window.TAHAdminTablesRuntimeConstants` before `admin-tables-constants.js` so JS width bounds stay aligned with server sanitization limits.
+7. `admin-tables-core.js` initializes managed tables and delegates behavior to interaction/store modules.
+8. Core performs one boot-time dependency check for required modules and stops initialization with one explicit console error if a required module is missing.
+9. `admin-tables-constants.js` now requires localized `window.TAHAdminTablesRuntimeConstants.widths`; if missing/invalid it logs one explicit error and fails closed (does not publish `window.TAHAdminTables.Constants`).
+10. Interaction/store modules also fail gracefully if shared constants are missing (explicit console error + no runtime attach), to avoid partial-load hard crashes.
+
+### Table Markup Contract
+- Table must declare `data-tah-table="<table_key>"`.
+- If your screen persists per-variant prefs, table should declare `data-tah-variant="<variant>"`.
+- Managed header cells must declare `data-tah-col` (enforced by validator).
+- For reorder-enabled tables, managed row cells must also declare `data-tah-col` and match header keys (validator disables reorder if invalid).
+- Locked columns are controlled by config (`columns[key].locked`) and rendered with `data-tah-locked="1"`.
+
+### Column Resize Controls (Config)
+- Table-level gate: `allow_resize`.
+- Table-level reset UX gate: `show_reset`.
+- Single canonical per-column schema: `columns[key]`.
+  - `columns[key].locked` (non-resizable + non-reorderable utility columns).
+  - `columns[key].resizable` (default `true`, forced `false` when `locked=true`).
+  - `columns[key].orderable` (default `true`, forced `false` when `locked=true`).
+  - `columns[key].visible` (default `true`; hidden columns are excluded from resize/order persistence).
+  - `columns[key].base_ch` / optional `columns[key].base_px` (deterministic initial/reset width when no saved width exists).
+  - `columns[key].min_ch` / optional `columns[key].min_px`.
+  - `columns[key].max_ch` / optional `columns[key].max_px`.
+- Safety cap:
+  - Runtime keeps a global max bound fallback so malformed config cannot create extreme widths.
+
+### Column Resize UX Contract (Target Behavior)
+- Resizing changes the dragged column width deterministically (same drag delta → same width result).
+- Min/max bounds from `columns[key]` are strict; reaching a bound should stop further resize in that direction.
+- Other columns should not auto-redistribute in ways that feel unpredictable during active resize.
+- If total width exceeds container, horizontal scroll is acceptable.
+- If total width is below container, preserve slack at table end (or one explicit filler column only), not broad multi-column auto-growth.
+- Locked/non-resizable columns never expose resize handles and never persist resize values.
+
+### Persistence Contract
+- AJAX action: `wp_ajax_tah_save_table_prefs` in `TAH_Admin_Table_Config`.
+- User meta key: `_tah_table_prefs`.
+- Stored shape:
+  - `_tah_table_prefs[screen_id][table_key_or_table_key:variant] = { v, widths, order, updated }`
+  - `v` is required schema version (`1` currently). Non-versioned entries are ignored.
+- Server-side sanitization:
+  - Rejects unknown table keys for the active screen context.
+  - Whitelists column keys from registry config (`columns`).
+  - Clamps width values to sane numeric bounds.
+
+### File Ownership (JS)
+- Shared global namespace: `window.TAHAdminTables` (`Constants`, `Core`, `Store`, `Interaction`).
+- `admin-tables-constants.js`: centralized numeric/style constants used by all table modules.
+- `admin-tables-core.js`: controller/orchestration, scanning, contract validation, reset UX wiring, and one shared `refreshManagedTables(...)` lifecycle path used by `tah:table_added`, `tah:table_row_added`, and `tah:table_layout_changed`.
+- `admin-tables-interaction.js`: unified interaction engine for layout/visibility sync, column width normalization, resize gestures, and header reorder; uses drag-session-only snapshot data (captured at sort start, discarded at stop/destroy) to avoid repeated hot-path DOM reads.
+- `admin-tables-store.js`: payload building, debounced saves, context-key/hash dedupe.
+
+### Quote Pricing Integration Notes
+- Canonical behavior contract (keys + flags + width bounds) lives in `inc/modules/pricing/class-quote-edit-screen.php`.
+- Header labels/markup stay local to pricing metabox in `inc/modules/pricing/class-quote-pricing-metabox.php` (`get_pricing_table_header_html()`).
+- Row markup template stays local to pricing metabox in `inc/modules/pricing/class-quote-pricing-metabox.php` (`#tah-pricing-row-template`).
+- New dynamic pricing tables reuse the metabox header template (`#tah-pricing-table-head-template`); `assets/js/quote-pricing.js` reads column order from DOM/template, not from a static JS fallback schema.
+
+### Runtime Events (Integration Hooks)
+- `tah:table_added` — dynamic table inserted, trigger scan/init.
+- `tah:table_row_added` — dynamic row inserted, trigger contract/visibility sync.
+- `tah:table_layout_changed` — layout/visibility change (e.g. variant toggles), trigger sync.
+- Prefer passing the affected row/table as event payload (for example `$(document).trigger('tah:table_row_added', [$row])`) so core can scope work and avoid broad rescans.
+- Quote add-group flow emits `tah:table_added` (table lifecycle) and does not emit redundant `tah:table_row_added` for the same new table.
+
+### Enabling On A New Custom Table (Quick Recipe)
+1. Add table markup contract attributes in your screen HTML:
+   - `<table data-tah-table="your_table_key">`
+   - Optional for per-variant persistence: `data-tah-variant="your_variant"`
+   - `<th data-tah-col="your_col_key">...</th>` for each managed header
+   - `<td data-tah-col="your_col_key">...</td>` for reorder-enabled row cells
+2. Register table config for your screen context:
+   - Hook `tah_admin_table_registry` and return your table map for that `screen_id`.
+  - Prefer `TAH_Admin_Table_Columns_Module::register_admin_table(...)` for pure input->screen-scoped table map output (config helper performs final normalization).
+   - Define one shared `columns` contract with canonical keys and behavior flags; keep labels/markup in the screen/metabox.
+3. (Optional) Map a custom logical context key:
+   - Hook `tah_admin_table_context_screen_id` if your screen needs a context alias.
+   - If omitted, module uses `get_current_screen()->id` automatically.
+
+### New Table Checklist
+1. Define one canonical `columns` contract (keys + `locked/orderable/resizable` + optional bounds).
+2. Keep labels and header/body markup local to the owning screen/metabox.
+3. Add `data-tah-table` on table and `data-tah-col` on managed header/body cells.
+4. Register table via `tah_admin_table_registry` (use the pure helper).
+5. Use `data-tah-variant` only when per-variant prefs are needed.
+6. Ensure unknown/invalid keys fail closed (no permissive fallbacks).
+7. Run `node tests/js/run-js-tests.js` and `bash tests/e2e/run-columns-smoke.sh`.
+
+### Quick Debug Checklist
+1. Confirm screen context is resolved (`tah_admin_table_context_screen_id` returns expected key).
+2. Confirm table registry returns config for that context (`tah_admin_table_registry`).
+3. Confirm localized payload exists in browser (`window.tahAdminTablesConfig`).
+4. Check for contract warnings in console (`TAH Admin Tables: Disabled ... invalid markup contract`).
+5. Verify prefs save path via AJAX (`action=tah_save_table_prefs`) and `_tah_table_prefs` user meta.
+6. Run smoke flow: `bash tests/e2e/run-columns-smoke.sh`.
+7. During header drag, distinguish helper vs placeholder in DevTools:
+   - helper: `.ui-sortable-helper` (moving element under cursor)
+   - placeholder: `.tah-admin-column-placeholder` (slot marker in header row)
+   - empty placeholder text indicates placeholder-label wiring issue, not helper content issue.
 
 ---
 
@@ -81,18 +212,21 @@ Each module must provide:
 ## Custom Post Types & Taxonomies
 
 ### Registration
-CPT definitions live in `inc/cpt/`:
+Most CPT definitions live in `inc/cpt/`:
 
 | File | CPT/Taxonomy | Slug | Purpose |
 |------|-------------|------|---------|
-| `quotes.php` | `quotes` | `quotes` | Customer quotes/estimates |
 | `equipment.php` | `equipment` | `equipment` | Equipment catalog |
 | `projects.php` | `projects` | `projects` | Portfolio projects |
 | `vehicles.php` | `vehicles` | `vehicles` | Company vehicles |
 | `template-parts.php` | `tah_template_part` | — | Global Info Section library |
 
+Quote core registration (Quote CPT + Trade taxonomy + quote customer metabox + list-table columns) is owned by the Quotes module:
+- Bootstrap: `inc/modules/quotes/class-quotes-module.php`
+- Capability gate: `tah_module_quotes_enabled`
+
 ### Taxonomy: `trade`
-- Registered in `quotes.php` for the `quotes` CPT
+- Registered in `inc/modules/quotes/class-quotes-module.php` for the `quotes` CPT
 - Represents a type of trade (e.g., "Hardwood Floors", "Tile")
 - Trade terms use **term meta** as a general extensibility pattern:
 
@@ -103,7 +237,8 @@ CPT definitions live in `inc/cpt/`:
 | `_tah_trade_pricing_preset` | Pricing | JSON preset of default groups and line items |
 
 ### Loading Order
-- CPTs are loaded via `inc/custom_post_types.php` (from `functions.php`)
+- `quotes` + `trade` registration is loaded via `TAH_Quotes_Module::boot()` in `inc/modules/class-module-registry.php`
+- Remaining CPTs are loaded via `inc/custom_post_types.php` (from `functions.php`)
 - `template-parts.php` is additionally loaded by the Info Sections module bootstrap
 
 ---
@@ -372,6 +507,9 @@ Icon buttons (`.tah-icon-button`, `.tah-delete-section`) follow a **hover-reveal
 ### Files
 | File | Purpose | Dependencies |
 |------|---------|-------------|
+| `assets/js/admin-tables-core.js` | Admin table controller/orchestrator | jQuery |
+| `assets/js/admin-tables-interaction.js` | Unified layout/resize/reorder interactions | jQuery, jQuery UI Sortable |
+| `assets/js/admin-tables-store.js` | Debounced table preference persistence | jQuery |
 | `assets/js/quote-sections.js` | Info Sections UI (sortable, CRUD, toggles) | jQuery, jQuery UI Sortable |
 | `assets/js/custom-script.js` | TinyMCE template button/dropdown | jQuery |
 | `assets/js/functions.js` | Frontend JS | None |

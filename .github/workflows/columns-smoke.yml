@@ -1,0 +1,71 @@
+name: Columns Smoke
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  columns-smoke-list:
+    name: Columns Smoke List
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: List smoke tests
+        env:
+          TAH_E2E_SKIP_BROWSER_INSTALL: '1'
+        run: bash tests/e2e/run-columns-smoke.sh --list
+
+  columns-smoke-nightly:
+    name: Columns Smoke Nightly
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate required secrets
+        env:
+          TAH_E2E_BASE_URL: ${{ secrets.TAH_E2E_BASE_URL }}
+          TAH_E2E_USERNAME: ${{ secrets.TAH_E2E_USERNAME }}
+          TAH_E2E_PASSWORD: ${{ secrets.TAH_E2E_PASSWORD }}
+          TAH_E2E_QUOTE_ID: ${{ secrets.TAH_E2E_QUOTE_ID }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in TAH_E2E_BASE_URL TAH_E2E_USERNAME TAH_E2E_PASSWORD TAH_E2E_QUOTE_ID; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing required secret: ${name}" >&2
+              missing=1
+            fi
+          done
+          if [[ "$missing" -ne 0 ]]; then
+            exit 1
+          fi
+
+      - name: Run full smoke suite
+        env:
+          TAH_E2E_BASE_URL: ${{ secrets.TAH_E2E_BASE_URL }}
+          TAH_E2E_USERNAME: ${{ secrets.TAH_E2E_USERNAME }}
+          TAH_E2E_PASSWORD: ${{ secrets.TAH_E2E_PASSWORD }}
+          TAH_E2E_QUOTE_ID: ${{ secrets.TAH_E2E_QUOTE_ID }}
+          CI: '1'
+        run: bash tests/e2e/run-columns-smoke.sh

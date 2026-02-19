@@ -152,6 +152,7 @@ When the user asks for your opinion on an idea (including feedback from others),
 ### 🔵 Trigger: Coding & Implementation
 - **Condition:** User asks for code or fixes, or includes tests in the same request as code.
 - **Action:** Load **`agent_docs/Coding_Guidelines.md`** as your primary guide; if it is missing, stop and surface a configuration error instead of coding without guidelines.
+- **Stack follow-up:** After loading the coding guide, load the relevant stack guide when applicable (for example `agent_docs/stacks/wordpress.md` for WordPress/PHP tasks).
 - **Mode:** **EDIT Mode** (Strict adherence to Spec).
 - **Reference:** Load `docs/Canonical_Spec.md` on‑demand when you need to verify behavior, check an invariant, or reference an Anchor by name; do not load it automatically for every small or cosmetic change.
 - **Micro-beading:** When a coding task meets the **Micro-Beading (Canonical Trigger)** above, you **SHOULD** use `agent_docs/micro_beading_pattern.md` (beads → questions/TODOs → implement → check). For local ≤3-file changes that do not meet the trigger, you may skip micro-beading and simply reference the relevant spec Anchors in your summary.

@@ -106,6 +106,8 @@ final class TAH_Quote_Pricing_Metabox
         echo '<p class="description tah-pricing-insurance-hint">' . esc_html__('Insurance format uses a flat line-item list (single implicit group).', 'the-artist') . '</p>';
         echo '<input type="hidden" id="tah-pricing-groups-json" name="' . esc_attr(self::FIELD_GROUPS_JSON) . '" value="">';
         echo '<input type="hidden" id="tah-pricing-items-json" name="' . esc_attr(self::FIELD_ITEMS_JSON) . '" value="">';
+        echo '<template id="tah-pricing-table-head-template">' . $this->get_pricing_table_header_html() . '</template>';
+        echo '<template id="tah-pricing-row-template">' . $this->get_pricing_row_template_html() . '</template>';
 
         echo '<div id="tah-pricing-groups" class="tah-pricing-groups">';
 
@@ -116,14 +118,18 @@ final class TAH_Quote_Pricing_Metabox
                 $group,
                 $line_items_by_group[$group_id] ?? [],
                 $catalog_prices,
-                $client_key
+                $client_key,
+                $quote_format
             );
         }
 
         echo '</div>';
 
         echo '<div class="tah-pricing-editor-footer">';
+        echo '<div class="tah-pricing-footer-actions">';
         echo '<button type="button" id="tah-add-group" class="button button-secondary">' . esc_html__('+ Add Group', 'the-artist') . '</button>';
+        echo '<button type="button" id="tah-reset-table-layout" class="button button-secondary tah-admin-reset-table" title="' . esc_attr__('Reset columns for all groups', 'the-artist') . '" aria-label="' . esc_attr__('Reset columns for all groups', 'the-artist') . '"><span class="dashicons dashicons-update" aria-hidden="true"></span></button>';
+        echo '</div>';
         echo '<span id="tah-pricing-save-status" class="tah-pricing-save-status" aria-live="polite"></span>';
         echo '<div id="tah-pricing-subtotal-row" class="tah-pricing-summary-row">';
         echo '<span class="tah-pricing-summary-label">' . esc_html__('Subtotal', 'the-artist') . '</span>';
@@ -138,8 +144,6 @@ final class TAH_Quote_Pricing_Metabox
         echo '<strong id="tah-pricing-grand-total-value" class="tah-pricing-grand-total-value">$0.00</strong>';
         echo '</div>';
         echo '</div>';
-
-        echo '<p class="description">' . esc_html__('Tip: Tab navigates cells. Press Enter in a row to insert a new line item below.', 'the-artist') . '</p>';
         echo '</div>';
     }
 
@@ -518,6 +522,7 @@ final class TAH_Quote_Pricing_Metabox
         );
 
         wp_localize_script('tah-quote-pricing', 'tahQuotePricingConfig', [
+            'pricingTableKey' => TAH_Quote_Edit_Screen::PRICING_EDITOR_TABLE_KEY,
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'ajaxAction' => 'tah_save_pricing',
             'ajaxSearchAction' => 'tah_search_pricing_items',
@@ -541,6 +546,7 @@ final class TAH_Quote_Pricing_Metabox
                 'saveSaving' => __('Saving...', 'the-artist'),
                 'saveSaved' => __('Saved', 'the-artist'),
                 'saveError' => __('Save failed', 'the-artist'),
+                'invalidFormula' => __('Invalid formula', 'the-artist'),
                 'suggestionNoPrice' => __('No price', 'the-artist'),
                 'presetApplied' => __('Pricing preset applied.', 'the-artist'),
                 'presetNoPreset' => __('No pricing preset is configured for this trade.', 'the-artist'),
@@ -605,7 +611,7 @@ final class TAH_Quote_Pricing_Metabox
      * @param array<int, array<string, mixed>> $line_items
      * @param array<int, float> $catalog_prices
      */
-    private function render_group_card(array $group, array $line_items, array $catalog_prices, string $client_key): void
+    private function render_group_card(array $group, array $line_items, array $catalog_prices, string $client_key, string $quote_format): void
     {
         $group_id = isset($group['id']) ? (int) $group['id'] : 0;
         $name = isset($group['name']) && trim((string) $group['name']) !== ''
@@ -615,15 +621,10 @@ final class TAH_Quote_Pricing_Metabox
         $selection_mode = $this->normalize_selection_mode(isset($group['selection_mode']) ? (string) $group['selection_mode'] : 'all');
         $show_subtotal = !empty($group['show_subtotal']);
         $is_collapsed = !empty($group['is_collapsed']);
-        $toggle_label = $is_collapsed
-            ? __('Expand group', 'the-artist')
-            : __('Collapse group', 'the-artist');
-        $toggle_icon = $is_collapsed ? 'dashicons-arrow-down-alt2' : 'dashicons-arrow-up-alt2';
+        $toggle_label = __('Collapse group', 'the-artist');
+        $toggle_icon = 'dashicons-arrow-up-alt2';
 
         $wrap_classes = 'tah-group-card';
-        if ($is_collapsed) {
-            $wrap_classes .= ' is-collapsed';
-        }
 
         echo '<section class="' . esc_attr($wrap_classes) . '" data-group-id="' . esc_attr((string) $group_id) . '" data-group-key="' . esc_attr($client_key) . '">';
         echo '<header class="tah-group-header">';
@@ -652,22 +653,8 @@ final class TAH_Quote_Pricing_Metabox
         echo '</header>';
 
         echo '<div class="tah-group-table-wrap">';
-        echo '<table class="tah-pricing-table-editor">';
-        echo '<thead><tr>';
-        echo '<th class="tah-col-handle"></th>';
-        echo '<th class="tah-col-index">#</th>';
-        echo '<th class="tah-col-item">' . esc_html__('Item', 'the-artist') . '</th>';
-        echo '<th class="tah-col-sku tah-col-insurance">' . esc_html__('SKU', 'the-artist') . '</th>';
-        echo '<th class="tah-col-description" data-standard-label="' . esc_attr__('Description', 'the-artist') . '" data-insurance-label="' . esc_attr__('F9 Note', 'the-artist') . '">' . esc_html__('Description', 'the-artist') . '</th>';
-        echo '<th class="tah-col-material tah-col-insurance">' . esc_html__('Material', 'the-artist') . '</th>';
-        echo '<th class="tah-col-labor tah-col-insurance">' . esc_html__('Labor', 'the-artist') . '</th>';
-        echo '<th class="tah-col-qty">' . esc_html__('Qty', 'the-artist') . '</th>';
-        echo '<th class="tah-col-rate" data-standard-label="' . esc_attr__('Rate', 'the-artist') . '" data-insurance-label="' . esc_attr__('Unit Price', 'the-artist') . '">' . esc_html__('Rate', 'the-artist') . '</th>';
-        echo '<th class="tah-col-tax tah-col-insurance">' . esc_html__('Tax', 'the-artist') . '</th>';
-        echo '<th class="tah-col-amount">' . esc_html__('Amount', 'the-artist') . '</th>';
-        echo '<th class="tah-col-margin">' . esc_html__('Margin', 'the-artist') . '</th>';
-        echo '<th class="tah-col-actions"></th>';
-        echo '</tr></thead>';
+        echo '<table class="tah-pricing-table-editor tah-resizable-table" data-tah-table="' . esc_attr(TAH_Quote_Edit_Screen::PRICING_EDITOR_TABLE_KEY) . '" data-tah-variant="' . esc_attr($quote_format) . '">';
+        echo $this->get_pricing_table_header_html();
         echo '<tbody class="tah-line-items-body">';
 
         if (empty($line_items)) {
@@ -693,6 +680,123 @@ final class TAH_Quote_Pricing_Metabox
 
         echo '</div>';
         echo '</section>';
+    }
+
+    private function get_pricing_table_header_html(): string
+    {
+        $column_contract = TAH_Quote_Edit_Screen::get_pricing_editor_column_contract();
+        $header_definitions = $this->get_pricing_header_definitions();
+        $header_html = '<thead><tr>';
+
+        foreach (array_keys($column_contract) as $column_key) {
+            if (!isset($header_definitions[$column_key]) || !is_array($header_definitions[$column_key])) {
+                continue;
+            }
+
+            $definition = $header_definitions[$column_key];
+            $classes = isset($definition['classes']) ? (string) $definition['classes'] : ('tah-col-' . $column_key);
+            $label = isset($definition['label']) ? (string) $definition['label'] : '';
+            $attrs = '';
+
+            if (isset($definition['standard_label']) && $definition['standard_label'] !== '') {
+                $attrs .= ' data-standard-label="' . esc_attr((string) $definition['standard_label']) . '"';
+            }
+            if (isset($definition['insurance_label']) && $definition['insurance_label'] !== '') {
+                $attrs .= ' data-insurance-label="' . esc_attr((string) $definition['insurance_label']) . '"';
+            }
+
+            $header_html .=
+                '<th class="' . esc_attr($classes) . '" data-tah-col="' . esc_attr($column_key) . '"' .
+                $this->get_pricing_column_locked_attr($column_key) .
+                $attrs .
+                '>' . esc_html($label) . '</th>';
+        }
+
+        $header_html .= '</tr></thead>';
+
+        return $header_html;
+    }
+
+    /**
+     * @return array<string, array<string, string>>
+     */
+    private function get_pricing_header_definitions(): array
+    {
+        return [
+            'handle' => [
+                'classes' => 'tah-col-handle',
+                'label' => '',
+            ],
+            'index' => [
+                'classes' => 'tah-col-index',
+                'label' => '#',
+            ],
+            'item' => [
+                'classes' => 'tah-col-item',
+                'label' => __('Item', 'the-artist'),
+            ],
+            'sku' => [
+                'classes' => 'tah-col-sku tah-col-insurance',
+                'label' => __('SKU', 'the-artist'),
+            ],
+            'description' => [
+                'classes' => 'tah-col-description',
+                'label' => __('Description', 'the-artist'),
+                'standard_label' => __('Description', 'the-artist'),
+                'insurance_label' => __('F9 Note', 'the-artist'),
+            ],
+            'material' => [
+                'classes' => 'tah-col-material tah-col-insurance',
+                'label' => __('Material', 'the-artist'),
+            ],
+            'labor' => [
+                'classes' => 'tah-col-labor tah-col-insurance',
+                'label' => __('Labor', 'the-artist'),
+            ],
+            'qty' => [
+                'classes' => 'tah-col-qty',
+                'label' => __('Qty', 'the-artist'),
+            ],
+            'rate' => [
+                'classes' => 'tah-col-rate',
+                'label' => __('Rate', 'the-artist'),
+                'standard_label' => __('Rate', 'the-artist'),
+                'insurance_label' => __('Unit Price', 'the-artist'),
+            ],
+            'tax' => [
+                'classes' => 'tah-col-tax tah-col-insurance',
+                'label' => __('Tax', 'the-artist'),
+            ],
+            'amount' => [
+                'classes' => 'tah-col-amount',
+                'label' => __('Amount', 'the-artist'),
+            ],
+            'margin' => [
+                'classes' => 'tah-col-margin',
+                'label' => __('Margin', 'the-artist'),
+            ],
+            'actions' => [
+                'classes' => 'tah-col-actions',
+                'label' => '',
+            ],
+        ];
+    }
+
+    private function get_pricing_column_locked_attr(string $column_key): string
+    {
+        $contract = TAH_Quote_Edit_Screen::get_pricing_editor_column_contract();
+        if (!isset($contract[$column_key]) || !is_array($contract[$column_key]) || empty($contract[$column_key]['locked'])) {
+            return '';
+        }
+
+        return ' data-tah-locked="1"';
+    }
+
+    private function get_pricing_row_template_html(): string
+    {
+        ob_start();
+        $this->render_line_item_row([], 1, 0.0);
+        return (string) ob_get_clean();
     }
 
     /**
@@ -730,14 +834,14 @@ final class TAH_Quote_Pricing_Metabox
         $amount = round($quantity * $resolved_price, 2);
         $qty_formula = $this->format_plain_number($quantity);
         $rate_formula = $this->format_rate_formula($price_mode, $price_modifier);
-        $badge = $this->resolve_rate_badge($price_mode, $pricing_item_id);
+        $is_custom_rate = $this->is_custom_rate_state($pricing_item_id, $resolved_price, $catalog_price);
         $margin = $this->format_margin($resolved_price, $material_cost, $labor_cost);
 
         echo '<tr class="tah-line-item-row" data-item-id="' . esc_attr((string) $line_id) . '">';
-        echo '<td class="tah-cell-handle"><span class="tah-drag-handle tah-line-handle" aria-hidden="true">' . $this->drag_handle_svg() . '</span></td>';
-        echo '<td class="tah-cell-index"><span class="tah-line-index">' . esc_html((string) $index) . '</span></td>';
+        echo '<td class="tah-cell-handle" data-tah-col="handle"><span class="tah-drag-handle tah-line-handle" aria-hidden="true">' . $this->drag_handle_svg() . '</span></td>';
+        echo '<td class="tah-cell-index" data-tah-col="index"><span class="tah-line-index">' . esc_html((string) $index) . '</span></td>';
 
-        echo '<td class="tah-cell-item">';
+        echo '<td class="tah-cell-item" data-tah-col="item">';
         echo '<input type="text" class="tah-form-control tah-line-title" value="' . esc_attr($title) . '" placeholder="' . esc_attr__('Line item', 'the-artist') . '">';
         echo '<input type="hidden" class="tah-line-id" value="' . esc_attr((string) $line_id) . '">';
         echo '<input type="hidden" class="tah-line-pricing-item-id" value="' . esc_attr((string) $pricing_item_id) . '">';
@@ -748,53 +852,45 @@ final class TAH_Quote_Pricing_Metabox
         echo '<input type="hidden" class="tah-line-previous-resolved-price" value="' . esc_attr($previous_resolved_price !== null ? (string) $previous_resolved_price : '') . '">';
         echo '</td>';
 
-        echo '<td class="tah-cell-sku tah-cell-insurance"><input type="text" class="tah-form-control tah-line-line-sku" value="' . esc_attr($line_sku) . '" placeholder="' . esc_attr__('SKU', 'the-artist') . '"></td>';
+        echo '<td class="tah-cell-sku tah-cell-insurance" data-tah-col="sku"><input type="text" class="tah-form-control tah-line-line-sku" value="' . esc_attr($line_sku) . '" placeholder="' . esc_attr__('SKU', 'the-artist') . '"></td>';
 
-        echo '<td class="tah-cell-description">';
+        echo '<td class="tah-cell-description" data-tah-col="description">';
         echo '<button type="button" class="button-link tah-line-note-toggle tah-cell-insurance" aria-label="' . esc_attr__('Toggle F9 note', 'the-artist') . '" title="' . esc_attr__('Toggle F9 note', 'the-artist') . '">F9</button>';
-        echo '<input type="text" class="tah-form-control tah-line-description" value="' . esc_attr($description_or_note) . '" placeholder="' . esc_attr__('Description', 'the-artist') . '">';
+        echo '<textarea class="tah-form-control tah-line-description" rows="1" placeholder="' . esc_attr__('Description', 'the-artist') . '">' . esc_textarea($description_or_note) . '</textarea>';
         echo '</td>';
 
-        echo '<td class="tah-cell-material tah-cell-insurance"><input type="number" step="0.01" class="tah-form-control tah-line-material-cost" value="' . esc_attr($material_cost !== null ? (string) $material_cost : '') . '" placeholder="0.00"></td>';
-        echo '<td class="tah-cell-labor tah-cell-insurance"><input type="number" step="0.01" class="tah-form-control tah-line-labor-cost" value="' . esc_attr($labor_cost !== null ? (string) $labor_cost : '') . '" placeholder="0.00"></td>';
+        echo '<td class="tah-cell-material tah-cell-insurance" data-tah-col="material"><input type="number" step="0.01" class="tah-form-control tah-line-material-cost" value="' . esc_attr($material_cost !== null ? (string) $material_cost : '') . '" placeholder="0.00"></td>';
+        echo '<td class="tah-cell-labor tah-cell-insurance" data-tah-col="labor"><input type="number" step="0.01" class="tah-form-control tah-line-labor-cost" value="' . esc_attr($labor_cost !== null ? (string) $labor_cost : '') . '" placeholder="0.00"></td>';
 
-        echo '<td class="tah-cell-qty">';
+        echo '<td class="tah-cell-qty" data-tah-col="qty">';
         echo '<input type="text" class="tah-form-control tah-line-qty" value="' . esc_attr($this->format_plain_number($quantity)) . '" data-formula="' . esc_attr($qty_formula) . '" data-resolved="' . esc_attr((string) $quantity) . '">';
         echo '</td>';
 
-        echo '<td class="tah-cell-rate">';
+        echo '<td class="tah-cell-rate" data-tah-col="rate">';
         echo '<div class="tah-rate-field">';
-        echo '<input type="text" class="tah-form-control tah-line-rate" value="' . esc_attr($this->format_currency($resolved_price)) . '" data-formula="' . esc_attr($rate_formula) . '" data-resolved="' . esc_attr((string) $resolved_price) . '">';
-        echo '<span class="tah-badge ' . esc_attr($badge['class']) . ' tah-line-rate-badge">' . esc_html($badge['label']) . '</span>';
+        echo '<input type="text" class="tah-form-control tah-line-rate' . ($is_custom_rate ? ' tah-line-rate--custom' : '') . '" value="' . esc_attr($this->format_currency($resolved_price)) . '" data-formula="' . esc_attr($rate_formula) . '" data-resolved="' . esc_attr((string) $resolved_price) . '">';
         echo '<input type="hidden" class="tah-line-catalog-price" value="' . esc_attr((string) $catalog_price) . '">';
         echo '</div>';
         echo '</td>';
 
-        echo '<td class="tah-cell-tax tah-cell-insurance">';
+        echo '<td class="tah-cell-tax tah-cell-insurance" data-tah-col="tax">';
         echo '<input type="number" step="0.0001" min="0" class="tah-form-control tah-line-tax-rate" value="' . esc_attr($tax_rate !== null ? (string) $tax_rate : '') . '" placeholder="' . esc_attr__('Quote default', 'the-artist') . '">';
         echo '<span class="tah-line-tax-amount">$0.00</span>';
         echo '</td>';
 
-        echo '<td class="tah-cell-amount"><span class="tah-line-amount" data-amount="' . esc_attr((string) $amount) . '">' . esc_html($this->format_currency($amount)) . '</span></td>';
-        echo '<td class="tah-cell-margin"><span class="tah-line-margin">' . esc_html($margin) . '</span></td>';
-        echo '<td class="tah-cell-actions"><button type="button" class="tah-icon-button tah-icon-button--danger tah-delete-line" aria-label="' . esc_attr__('Delete line item', 'the-artist') . '" title="' . esc_attr__('Delete line item', 'the-artist') . '"><span class="dashicons dashicons-trash" aria-hidden="true"></span></button></td>';
+        echo '<td class="tah-cell-amount" data-tah-col="amount"><span class="tah-line-amount" data-amount="' . esc_attr((string) $amount) . '">' . esc_html($this->format_currency($amount)) . '</span></td>';
+        echo '<td class="tah-cell-margin" data-tah-col="margin"><span class="tah-line-margin">' . esc_html($margin) . '</span></td>';
+        echo '<td class="tah-cell-actions" data-tah-col="actions"><button type="button" class="tah-icon-button tah-icon-button--danger tah-delete-line" aria-label="' . esc_attr__('Delete line item', 'the-artist') . '" title="' . esc_attr__('Delete line item', 'the-artist') . '"><span class="dashicons dashicons-trash" aria-hidden="true"></span></button></td>';
         echo '</tr>';
     }
 
-    /**
-     * @return array{class:string,label:string}
-     */
-    private function resolve_rate_badge(string $price_mode, int $pricing_item_id): array
+    private function is_custom_rate_state(int $pricing_item_id, float $resolved_price, float $catalog_price): bool
     {
-        if ($pricing_item_id <= 0 || $price_mode === TAH_Price_Formula::MODE_OVERRIDE) {
-            return ['class' => 'tah-badge--custom', 'label' => __('CUSTOM', 'the-artist')];
+        if ($pricing_item_id <= 0) {
+            return false;
         }
 
-        if ($price_mode === TAH_Price_Formula::MODE_DEFAULT) {
-            return ['class' => 'tah-badge--neutral', 'label' => __('DEFAULT', 'the-artist')];
-        }
-
-        return ['class' => 'tah-badge--accent', 'label' => __('MODIFIED', 'the-artist')];
+        return abs($resolved_price - $catalog_price) >= 0.005;
     }
 
     private function normalize_selection_mode(string $selection_mode): string

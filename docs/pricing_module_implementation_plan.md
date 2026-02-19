@@ -13,11 +13,11 @@
 | File | Purpose |
 |---|---|
 | [`functions.php`](file:///home/zhenya/dev/the-artist-hub/functions.php) | Theme entry point. Loads `TAH_Module_Registry::boot()` |
-| [`inc/modules/class-module-registry.php`](file:///home/zhenya/dev/the-artist-hub/inc/modules/class-module-registry.php) | Boots theme modules. Currently loads `info-sections` only |
+| [`inc/modules/class-module-registry.php`](file:///home/zhenya/dev/the-artist-hub/inc/modules/class-module-registry.php) | Boots theme modules in explicit order: `quotes` + `info-sections` + `admin-table-columns` + `pricing` |
 | [`inc/admin/class-quote-sections.php`](file:///home/zhenya/dev/the-artist-hub/inc/admin/class-quote-sections.php) | **Architectural model.** 926-line class: metabox rendering, save hooks, trade presets, frontend rendering. This module is the pattern we follow. |
 | [`inc/admin/class-trade-presets.php`](file:///home/zhenya/dev/the-artist-hub/inc/admin/class-trade-presets.php) | Trade taxonomy term meta fields for section presets |
-| [`inc/cpt/quotes.php`](file:///home/zhenya/dev/the-artist-hub/inc/cpt/quotes.php) | Quote CPT registration, customer info metabox, admin columns |
-| [`single-quotes.php`](file:///home/zhenya/dev/the-artist-hub/single-quotes.php) | Frontend quote template. Renders `the_content()` then `tah_render_quote_sections()` |
+| [`inc/modules/quotes/class-quotes-module.php`](file:///home/zhenya/dev/the-artist-hub/inc/modules/quotes/class-quotes-module.php) | Quote module: Quote CPT + `trade` taxonomy + customer info metabox + admin columns |
+| [`single-quotes.php`](file:///home/zhenya/dev/the-artist-hub/single-quotes.php) | Frontend quote template. Renders `the_content()`, then `tah_render_quote_pricing()`, then `tah_render_quote_sections()` |
 | [`assets/js/quote-sections.js`](file:///home/zhenya/dev/the-artist-hub/assets/js/quote-sections.js) | Admin JS for quote sections metabox (drag-and-drop, toggling, etc.) |
 | [`assets/css/admin.css`](file:///home/zhenya/dev/the-artist-hub/assets/css/admin.css) | Admin styles for metaboxes |
 | [`inc/migrations/`](file:///home/zhenya/dev/the-artist-hub/inc/migrations/) | Empty directory — ready for schema migrations |
@@ -327,7 +327,7 @@
   - Done When: Settings page saves and loads all options. Cron status section shows last run time, status, and quote count.
 
 - [ ] **Add pricing status column to quotes admin list** · Reasoning: `low` — single custom column with date/status display · (Spec: §Observability — Admin Quotes List)
-  - Artifacts: `inc/cpt/quotes.php` or module file
+  - Artifacts: `inc/modules/quotes/class-quotes-module.php` (or another quote-owner module file)
   - Interfaces: Custom column in `manage_quotes_posts_columns`
   - Done When: Column shows "Current", "Updated [date]", or "Price locked until [date]" per quote. Column is sortable and filterable.
 
