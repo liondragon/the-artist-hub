@@ -59,6 +59,26 @@ function test_quote_edit_screen_action_menu_delete_uses_primary_and_fallback_url
     );
 }
 
+function test_quote_edit_screen_action_menu_hides_save_draft_when_published()
+{
+    $source_path = dirname(__DIR__, 2) . '/inc/modules/pricing/class-quote-edit-screen.php';
+    Assert::true(file_exists($source_path), 'Quote edit screen source should exist');
+    if (!file_exists($source_path)) {
+        return;
+    }
+
+    $source = (string) file_get_contents($source_path);
+    Assert::true(
+        strpos($source, '#tah-action-menu [data-action="save_draft"]') !== false,
+        'Save Draft submenu item selector should be present in menu state logic'
+    );
+    Assert::true(
+        strpos($source, '$saveDraftItem.toggle(!isAlreadyPublished(status));') !== false,
+        'Save Draft should hide for published/private/future quotes'
+    );
+}
+
 // Run Tests
 test_quote_edit_screen_action_menu_preview_is_submenu_only();
 test_quote_edit_screen_action_menu_delete_uses_primary_and_fallback_urls();
+test_quote_edit_screen_action_menu_hides_save_draft_when_published();

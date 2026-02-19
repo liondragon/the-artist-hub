@@ -503,6 +503,11 @@ jQuery(function ($) {
             return;
         }
         $btn.text(isAlreadyPublished(status) ? 'Update' : 'Publish');
+
+        var $saveDraftItem = $('#tah-action-menu [data-action="save_draft"]');
+        if ($saveDraftItem.length) {
+            $saveDraftItem.toggle(!isAlreadyPublished(status));
+        }
     }
 
     function triggerPrimaryAction() {
