@@ -42,7 +42,6 @@ final class TAH_Quote_Edit_Screen
         add_action('add_meta_boxes_' . self::POST_TYPE, [$this, 'register_quote_options_metabox'], 100);
         add_action('add_meta_boxes_' . self::POST_TYPE, [$this, 'register_admin_notes_metabox'], 100);
         add_action('edit_form_after_title', [$this, 'render_editor_shell']);
-        add_action('edit_form_after_editor', [$this, 'render_screen_options_footer']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_assets']);
         add_filter('admin_body_class', [$this, 'add_body_class']);
         add_action('admin_post_' . self::DUPLICATE_ACTION, [$this, 'handle_duplicate_quote']);
@@ -177,20 +176,6 @@ final class TAH_Quote_Edit_Screen
         echo '<div id="tah-quote-editor-main-panels" class="tah-quote-editor-panels"></div>';
         echo '</section>';
         echo '</div>'; // #tah-quote-editor
-    }
-
-    /**
-     * Render an in-flow footer slot for WP Screen Options.
-     *
-     * @param WP_Post $post
-     */
-    public function render_screen_options_footer($post): void
-    {
-        if (!$post instanceof WP_Post || $post->post_type !== self::POST_TYPE) {
-            return;
-        }
-
-        echo '<div id="tah-screen-options-footer" class="tah-screen-options-footer"></div>';
     }
 
     /**
@@ -610,17 +595,6 @@ jQuery(function ($) {
         var $postbox = $(postbox);
         $postbox.css({ height: '' });
     });
-
-    // Move WP Screen Options to the bottom of the quote editor (in-flow, not floating).
-    var $screenMetaLinks = $('#screen-meta-links');
-    var $screenMeta = $('#screen-meta');
-    var $footer = $('#tah-screen-options-footer');
-    if ($footer.length && $screenMetaLinks.length) {
-        $footer.append($screenMetaLinks);
-        if ($screenMeta.length) {
-            $footer.append($screenMeta);
-        }
-    }
 
     // Move quote actions to the top header area
     var $headerActions = $('.tah-quote-editor-header-actions');

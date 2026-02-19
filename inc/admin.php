@@ -2,109 +2,11 @@
 declare(strict_types=1);
 
 /**
- * Admin Customization & Security
- * 
- * Handles:
- * - Admin Cleanup (Menus, Widgets, Nodes)
- * - Login Page Customization
- * - Admin Styles
- * - Security Tweaks (Version Hiding, Login URL)
+ * Admin Security & Login Behavior
+ *
+ * Note: shared admin UI chrome/customization hooks now live in
+ * `inc/modules/admin-ui/class-admin-ui-module.php`.
  */
-
-/**
- * -----------------------------------------------------------------------------
- * 1. ADMIN UI CLEANUP
- * -----------------------------------------------------------------------------
- */
-
-// Remove Admin Menu Items
-function the_artist_remove_menu_items()
-{
-    remove_menu_page('tools.php');
-    remove_submenu_page('themes.php', 'customize.php?return=' . urlencode($_SERVER['SCRIPT_NAME']));
-    remove_submenu_page('themes.php', 'themes.php');
-    remove_submenu_page('options-general.php', 'akismet-key-config');
-    remove_submenu_page('admin.php', 'wp_mailjet_options_campaigns_menu');
-}
-add_action('admin_menu', 'the_artist_remove_menu_items', 999);
-
-function the_artist_remove_posts_menu()
-{
-    remove_menu_page('edit.php');
-}
-add_action('admin_menu', 'the_artist_remove_posts_menu');
-
-// Disable Admin Bar Menu Items
-function remove_admin_bar_links()
-{
-    global $wp_admin_bar;
-    $wp_admin_bar->remove_menu('new-content');      // Remove the 'add new' button
-    $wp_admin_bar->remove_menu('comments');         // Remove the comments bubble
-    $wp_admin_bar->remove_menu('about');            // Remove the about WordPress link
-    $wp_admin_bar->remove_menu('wporg');            // Remove the WordPress.org link
-    $wp_admin_bar->remove_menu('documentation');    // Remove the WordPress documentation link
-    $wp_admin_bar->remove_menu('support-forums');   // Remove the support forums link
-    $wp_admin_bar->remove_menu('feedback');         // Remove the feedback link
-    // $wp_admin_bar->remove_menu('view-site'); // 'Visit Site'
-    $wp_admin_bar->remove_menu('dashboard'); // 'Dashboard'
-    $wp_admin_bar->remove_menu('themes'); // 'Themes'
-    $wp_admin_bar->remove_menu('widgets'); // 'Widgets'
-    $wp_admin_bar->remove_menu('menus'); // 'Menus'
-    $wp_admin_bar->remove_menu('customize'); //Customize
-    $wp_admin_bar->remove_node('search');
-}
-add_action('wp_before_admin_bar_render', 'remove_admin_bar_links');
-add_filter('update_right_now_text', '__return_false');
-
-function clear_node_title($wp_admin_bar)
-{
-    // Get all the nodes
-    $all_toolbar_nodes = $wp_admin_bar->get_nodes();
-    // Create an array of node ID's we'd like to remove
-    $clear_titles = array(
-        'site-name',
-    );
-
-    foreach ($all_toolbar_nodes as $node) {
-        // Run an if check to see if a node is in the array to clear_titles
-        if (in_array($node->id, $clear_titles)) {
-            // use the same node's properties
-            $args = $node;
-
-            // make the node title a blank string
-            $args->title = 'Switch';
-
-            // update the Toolbar node
-            $wp_admin_bar->add_node($args);
-        }
-    }
-}
-add_action('admin_bar_menu', 'clear_node_title', 999);
-
-// Remove Help Tab
-function remove_context_menu_help()
-{
-    $current_screen = get_current_screen();
-    $current_screen->remove_help_tabs();
-}
-add_action('admin_head', 'remove_context_menu_help');
-
-// Change Admin Bar User Profile Greeting
-add_filter('admin_bar_menu', 'replace_wordpress_howdy', 25);
-function replace_wordpress_howdy($wp_admin_bar)
-{
-    $my_account = $wp_admin_bar->get_node('my-account');
-    if (!$my_account) {
-        return;
-    }
-
-    $newtext = str_replace('Howdy,', '', $my_account->title);
-
-    $wp_admin_bar->add_node(array(
-        'id' => 'my-account',
-        'title' => $newtext,
-    ));
-}
 
 // Remove Head Links
 remove_action('wp_head', 'wlwmanifest_link');
@@ -124,75 +26,11 @@ function disable_version()
 }
 add_filter('the_generator', 'disable_version');
 
-// Remove WP Logo from Admin Bar
-add_action('admin_bar_menu', 'the_artist_remove_wp_logo', 999);
-function the_artist_remove_wp_logo($wp_admin_bar)
-{
-    $wp_admin_bar->remove_node('wp-logo');
-}
-
-// Remove Dashboard Widgets
-add_action('wp_dashboard_setup', 'the_artist_remove_dashboard_widgets');
-function the_artist_remove_dashboard_widgets()
-{
-    remove_meta_box('dashboard_quick_press', 'dashboard', 'side');
-    remove_meta_box('dashboard_recent_drafts', 'dashboard', 'side');
-    remove_meta_box('dashboard_primary', 'dashboard', 'side');
-    remove_meta_box('dashboard_secondary', 'dashboard', 'side');
-    remove_meta_box('dashboard_incoming_links', 'dashboard', 'normal');
-    remove_meta_box('dashboard_plugins', 'dashboard', 'normal');
-}
-
-//Remove Footer Text
-function wpse_remove_footer()
-{
-    add_filter('admin_footer_text', '__return_false', 11);
-    add_filter('update_footer', '__return_false', 11);
-}
-add_action('admin_init', 'wpse_remove_footer');
-
-/**
- * Add footer buttons to Admin Sidebar (PHP/CSS Version)
- */
-function the_artist_add_admin_sidebar_footer()
-{
-    $profile_url = get_edit_profile_url();
-    $logout_url = wp_logout_url();
-    $home_url = home_url();
-
-    echo '<div id="tah-admin-sidebar-footer" class="tah-admin-sidebar-footer">';
-    echo '<a href="' . esc_url($profile_url) . '" title="Profile" class="tah-footer-icon"><span class="dashicons dashicons-admin-users"></span></a>';
-    echo '<a href="' . esc_url($logout_url) . '" title="Log Out" class="tah-footer-icon"><span class="dashicons dashicons-migrate"></span></a>';
-    echo '<a href="' . esc_url($home_url) . '" title="Switch Site" class="tah-footer-icon"><span class="dashicons dashicons-admin-home"></span></a>';
-    echo '</div>';
-}
-add_action('admin_footer', 'the_artist_add_admin_sidebar_footer');
-
-
 /**
  * -----------------------------------------------------------------------------
- * 2. ADMIN STYLES & LOGIN CUSTOMIZATION
+ * 1. LOGIN CUSTOMIZATION
  * -----------------------------------------------------------------------------
  */
-
-// Admin Styles - covers admin bar, admin area, and login page
-function load_theme_admin_styles()
-{
-    $css_path = get_template_directory() . '/assets/css/admin.css';
-    $version = file_exists($css_path) ? filemtime($css_path) : '1.0.0';
-    wp_enqueue_style('theme-admin', get_template_directory_uri() . '/assets/css/admin.css', false, $version);
-}
-add_action('admin_enqueue_scripts', 'load_theme_admin_styles');
-add_action('login_enqueue_scripts', 'load_theme_admin_styles');
-
-// Also load on frontend for admin bar styling
-// Also load on frontend for admin bar styling
-function load_admin_bar_styles()
-{
-    // Intentionally empty
-}
-add_action('wp_enqueue_scripts', 'load_admin_bar_styles');
-add_theme_support('admin-bar', array('callback' => '__return_false'));
 
 // Change Login Logo Title
 function my_login_logo_url_title()
@@ -229,7 +67,7 @@ add_action('login_head', 'my_login_head');
 
 /**
  * -----------------------------------------------------------------------------
- * 3. SECURITY & REWRITES
+ * 2. SECURITY & REWRITES
  * -----------------------------------------------------------------------------
  */
 

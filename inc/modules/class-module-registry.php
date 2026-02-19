@@ -35,6 +35,9 @@ final class TAH_Module_Registry
         require_once __DIR__ . '/admin-table-columns/class-admin-table-columns-module.php';
         TAH_Admin_Table_Columns_Module::boot();
 
+        require_once __DIR__ . '/admin-ui/class-admin-ui-module.php';
+        TAH_Admin_UI_Module::boot();
+
         require_once __DIR__ . '/pricing/class-pricing-module.php';
         TAH_Pricing_Module::boot();
     }

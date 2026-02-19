@@ -36,6 +36,33 @@
 }
 
 /* ==========================================================================
+   Post Screen Options Footer
+   ========================================================================== */
+
+.post-php .tah-screen-options-footer,
+.post-new-php .tah-screen-options-footer {
+    margin-top: 16px;
+    padding-top: 8px;
+    border-top: none
+}
+
+.post-php .tah-screen-options-footer #screen-meta-links,
+.post-new-php .tah-screen-options-footer #screen-meta-links {
+    margin: 0 0 8px;
+}
+
+.post-php .tah-screen-options-footer #screen-meta-links .screen-meta-toggle,
+.post-new-php .tah-screen-options-footer #screen-meta-links .screen-meta-toggle {
+    margin: 0 8px 0 0;
+}
+
+.post-php .tah-screen-options-footer #screen-meta,
+.post-new-php .tah-screen-options-footer #screen-meta {
+    margin: 0;
+    box-shadow: none;
+}
+
+/* ==========================================================================
    Login Page
    ========================================================================== */
 
