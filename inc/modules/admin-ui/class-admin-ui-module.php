@@ -269,16 +269,24 @@ jQuery(function ($) {
             $globalFooter = $('<div id="tah-global-screen-options-footer" class="tah-screen-options-footer"></div>');
         }
 
-        var $postStuff = $('#poststuff');
-        if ($postStuff.length) {
-            $postStuff.append($globalFooter);
+        var $anchor = $('#poststuff');
+        if (!$anchor.length) {
+            $anchor = $('#wpbody-content');
+        }
+
+        if ($anchor.length) {
+            $anchor.css('position', 'relative');
+            $anchor.append($globalFooter);
+            $globalFooter.css({
+                position: 'absolute',
+                left: '0',
+                width: '100%',
+                bottom: '0',
+                right: 'auto',
+                margin: '0',
+                zIndex: '10001'
+            });
             $footer = $globalFooter;
-        } else {
-            var $wpBodyContent = $('#wpbody-content');
-            if ($wpBodyContent.length) {
-                $wpBodyContent.append($globalFooter);
-                $footer = $globalFooter;
-            }
         }
     }
 
@@ -287,43 +295,10 @@ jQuery(function ($) {
     }
 
     if (!isQuoteEditor && $footer.attr('id') === 'tah-global-screen-options-footer') {
-        var syncGlobalFooterFrame = function () {
-            var $anchor = $('#poststuff');
-            if (!$anchor.length) {
-                $anchor = $('#wpbody-content');
-            }
-            if (!$anchor.length) {
-                return;
-            }
-
-            var offset = $anchor.offset();
-            var width = $anchor.outerWidth();
-            if (!offset || !width || width < 1) {
-                return;
-            }
-
-            $footer.css({
-                position: 'fixed',
-                left: Math.round(offset.left) + 'px',
-                width: Math.round(width) + 'px',
-                bottom: '0',
-                right: 'auto',
-                margin: '0',
-                zIndex: '10001'
-            });
-        };
-
         $footer.append($screenMetaLinks);
         if ($screenMeta.length) {
             $footer.append($screenMeta);
         }
-
-        syncGlobalFooterFrame();
-        $(window).on('resize.tahScreenOptions', syncGlobalFooterFrame);
-        $(document).on('click.tahScreenOptions', '#screen-meta-links .show-settings', function () {
-            window.setTimeout(syncGlobalFooterFrame, 0);
-            window.setTimeout(syncGlobalFooterFrame, 220);
-        });
         return;
     }
 
