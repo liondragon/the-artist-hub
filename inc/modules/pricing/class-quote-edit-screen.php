@@ -163,9 +163,11 @@ final class TAH_Quote_Edit_Screen
         echo '<div class="tah-split-menu" id="tah-action-menu" style="display:none;">';
 
         $duplicate_url = $this->build_duplicate_url((int) $post->ID);
+        $trash_url = $this->build_trash_url((int) $post->ID);
         echo '<a class="tah-split-item" href="' . esc_url($duplicate_url) . '">' . esc_html__('Duplicate', 'the-artist') . '</a>';
         echo '<button type="button" class="tah-split-item" data-action="save_draft">' . esc_html__('Save Draft', 'the-artist') . '</button>';
-        echo '<button type="button" class="tah-split-item tah-split-item-danger" data-action="delete">' . esc_html__('Move to Trash', 'the-artist') . '</button>';
+        echo '<button type="button" class="tah-split-item" data-action="preview">' . esc_html__('Preview', 'the-artist') . '</button>';
+        echo '<button type="button" class="tah-split-item tah-split-item-danger" data-action="delete" data-delete-url="' . esc_url($trash_url) . '">' . esc_html__('Move to Trash', 'the-artist') . '</button>';
         echo '<button type="button" class="tah-split-item" data-action="email" disabled>' . esc_html__('Email (Soon)', 'the-artist') . '</button>';
         echo '</div>';
         echo '</div>';
@@ -524,6 +526,16 @@ jQuery(function ($) {
         window.alert('Save Draft is not available in this state.');
     }
 
+    function triggerPreview() {
+        var $preview = $('#post-preview');
+        if ($preview.length) {
+            $preview[0].click();
+            return;
+        }
+
+        window.alert('Preview is not available in this state.');
+    }
+
     setPrimaryLabel();
 
     $('#tah-action-primary').on('click', function () {
@@ -548,7 +560,7 @@ jQuery(function ($) {
         $('#tah-action-toggle').attr('aria-expanded', 'false');
     });
 
-    $(document).on('click', '#tah-action-menu [data-action]', function (event) {
+    $('#tah-action-menu').on('click', '[data-action]', function (event) {
         event.preventDefault();
         var action = String($(this).data('action') || '');
         $('#tah-action-menu').hide();
@@ -558,14 +570,21 @@ jQuery(function ($) {
             triggerSaveDraft();
             return;
         }
+        if (action === 'preview') {
+            triggerPreview();
+            return;
+        }
         if (action === 'delete') {
             if (!window.confirm('Move this quote to the trash?')) {
                 return;
             }
 
-            var $deleteLink = $('#submitdiv a.submitdelete').first();
-            if ($deleteLink.length) {
-                $deleteLink[0].click();
+            var deleteUrl = String($(this).data('deleteUrl') || '');
+            if (deleteUrl === '') {
+                deleteUrl = String($('#submitdiv #delete-action a.submitdelete, #submitdiv a.submitdelete').first().attr('href') || '');
+            }
+            if (deleteUrl !== '') {
+                window.location.assign(deleteUrl);
                 return;
             }
 
@@ -864,6 +883,17 @@ JS;
         ], admin_url('admin-post.php'));
 
         return wp_nonce_url($url, self::DUPLICATE_NONCE_ACTION . '_' . $quote_id);
+    }
+
+    private function build_trash_url(int $quote_id): string
+    {
+        if ($quote_id <= 0) {
+            return '';
+        }
+
+        $url = get_delete_post_link($quote_id, '', false);
+
+        return is_string($url) ? $url : '';
     }
 
     private function copy_quote_taxonomies(int $source_quote_id, int $new_quote_id): void

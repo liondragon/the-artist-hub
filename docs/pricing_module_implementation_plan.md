@@ -321,6 +321,22 @@
   - Done When: Checks `_tah_lock_offer_expires_at` — if expired, shows friendly "offer expired" message with link to current quote. If valid, **reverts** `resolved_price` to `previous_resolved_price` for all affected line items, sets `_tah_price_locked_until` to `_tah_lock_offer_expires_at` (remaining offer window). After lock expires, next cron run recalculates at current catalog prices. Invalid tokens show error. Admin metabox shows "Copy lock link" button only when `_tah_lock_offer_expires_at > now` and at least one line item has non-NULL `previous_resolved_price`.
   - Handoff Required: yes — document the revert semantics (`resolved_price` ← `previous_resolved_price`), how `_tah_price_locked_until` interacts with cron skip logic, and the token derivation formula (`wp_hash(quote_id . post_date)`).
 
+- [ ] **Protect public quote pages with stable access token gate** · Reasoning: `high` — prevents quote enumeration/privacy leaks while avoiding forced token expiry churn · (Spec: security hardening, quote frontend access)
+  - Artifacts: `inc/modules/quotes/class-quotes-module.php` (or dedicated quote-access class), quote edit UI file for "Copy customer link" + "Regenerate link" controls
+  - Interfaces: Customer quote link includes a per-quote token (example: `/quotes/123-main-st/?qt=q_2a9d8c7f...`). Access policy: logged-in admins can always view; unauthenticated requests to single-quote pages must provide a valid token; missing/invalid token returns 404. Token value is random (not derived from quote ID/date/slug), and validation uses constant-time compare (`hash_equals`).
+  - Done When: New quotes get a cryptographically-random token (`random_bytes`) saved in post meta; existing quotes get lazy backfill on first edit/render helper call; token has no automatic expiry; admin can manually regenerate token to revoke old links; regenerated token invalidates old links immediately. Regeneration preserves quote permalink and only rotates credential. Token values are never logged to debug/error logs and never exposed in admin tables.
+  - Handoff Required: yes — document token generation source, token validation flow, lazy-backfill strategy for legacy quotes, revoke/regenerate UX, 404 behavior contract for invalid access, and token-handling security constraints (no derivation, no logging, constant-time compare).
+
+- [ ] **Add quote customer-link admin controls** · Reasoning: `medium` — customer link sharing must be operator-friendly to avoid manual URL composition mistakes · (Spec: quote frontend access UX)
+  - Artifacts: `inc/modules/pricing/class-quote-edit-screen.php` (or quote-owner admin UI file)
+  - Interfaces: "Copy Customer Link" button and "Regenerate Link" action in quote edit UI. Regenerate action requires nonce + `edit_post` capability.
+  - Done When: Admin can copy a ready-to-send URL containing `qt`. Regenerate action rotates token and shows the new link. Old link stops working immediately.
+
+- [ ] **Add quote access observability fields** · Reasoning: `low` — support/security teams need minimal forensics for link misuse or accidental forwarding · (Spec: observability hardening)
+  - Artifacts: quote access gate class + quote edit UI summary area
+  - Interfaces: Post meta fields `_tah_quote_access_last_viewed_at` and `_tah_quote_access_last_viewed_ip_hash` (or equivalent privacy-safe fingerprint). Display "Last external access" summary in admin.
+  - Done When: Valid token-based customer access updates observability fields; admin/staff views do not affect customer access telemetry.
+
 - [ ] **Add Global Pricing Settings page** · Reasoning: `low` — standard WP settings API with 3 option fields + cron status display · (Spec: §Global Pricing Settings)
   - Artifacts: `inc/modules/pricing/class-pricing-settings.php`
   - Interfaces: WP admin settings page or section. Options: `tah_price_rounding`, `tah_price_rounding_direction`, `tah_cron_frequency`. Cron status display. Quote expiry settings deferred to Phase 2.
@@ -331,7 +347,7 @@
   - Interfaces: Custom column in `manage_quotes_posts_columns`
   - Done When: Column shows "Current", "Updated [date]", or "Price locked until [date]" per quote. Column is sortable and filterable.
 
-- [ ] Verify Phase 5: change a catalog price, run cron manually via WP-CLI (`wp cron event run tah_pricing_update`), confirm quotes updated, test price lock URL, check settings page and admin column (Manual step #6)
+- [ ] Verify Phase 5: change a catalog price, run cron manually via WP-CLI (`wp cron event run tah_pricing_update`), confirm quotes updated, test price lock URL, test quote access token gate (valid token, missing token, invalid token, regenerated token), verify admin bypass behavior, verify "Copy Customer Link" + "Regenerate Link", check settings page and admin column (Manual step #6)
 
 ---
 
