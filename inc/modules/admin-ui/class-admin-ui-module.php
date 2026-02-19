@@ -264,18 +264,33 @@ jQuery(function ($) {
     }
 
     if (!isQuoteEditor) {
+        var $globalFooter = $('#tah-global-screen-options-footer');
+        if (!$globalFooter.length) {
+            $globalFooter = $('<div id="tah-global-screen-options-footer" class="tah-screen-options-footer"></div>');
+        }
+
         var $wpFooter = $('#wpfooter');
         if ($wpFooter.length) {
-            var $globalFooter = $('#tah-global-screen-options-footer');
-            if (!$globalFooter.length) {
-                $globalFooter = $('<div id="tah-global-screen-options-footer" class="tah-screen-options-footer"></div>');
-                $wpFooter.before($globalFooter);
-            }
+            $wpFooter.append($globalFooter);
             $footer = $globalFooter;
+        } else {
+            var $wpBodyContent = $('#wpbody-content');
+            if ($wpBodyContent.length) {
+                $wpBodyContent.append($globalFooter);
+                $footer = $globalFooter;
+            }
         }
     }
 
     if (!$footer.length) {
+        return;
+    }
+
+    if (!isQuoteEditor && $footer.attr('id') === 'tah-global-screen-options-footer') {
+        if ($screenMeta.length) {
+            $footer.append($screenMeta);
+        }
+        $footer.append($screenMetaLinks);
         return;
     }
 

@@ -52,6 +52,16 @@
 #tah-global-screen-options-footer {
     position: relative;
     z-index: 10001;
+    margin-bottom: 0;
+    margin-top: 0;
+}
+
+.post-php #wpfooter,
+.post-new-php #wpfooter {
+    padding-top: 0;
+    padding-bottom: 0;
+    min-height: 0;
+    height: auto;
 }
 
 .post-php .tah-screen-options-footer #screen-meta-links,
@@ -92,6 +102,14 @@
     transform: rotate(180deg);
 }
 
+#tah-global-screen-options-footer #screen-meta-links .show-settings {
+    border-bottom: 1px solid #c3c4c7 !important;
+    border-top: 0 !important;
+    border-radius: 0 0 4px 4px !important;
+    margin-bottom: 0 !important;
+    margin-top: -1px !important;
+}
+
 .post-php .tah-screen-options-footer #screen-meta,
 .post-new-php .tah-screen-options-footer #screen-meta {
     margin: 0;
@@ -109,6 +127,13 @@
     z-index: 1;
     text-align: left;
     overflow: hidden;
+}
+
+#tah-global-screen-options-footer #screen-meta {
+    border-bottom: 0 !important;
+    border-top: 1px solid #c3c4c7 !important;
+    border-radius: 4px 4px 0 0 !important;
+    margin-bottom: 0 !important;
 }
 
 /* ==========================================================================
