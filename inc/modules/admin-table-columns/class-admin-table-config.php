@@ -658,18 +658,34 @@ class TAH_Admin_Table_Config
     private function update_user_pref($screen_id, $table_key, $data)
     {
         $user_id = get_current_user_id();
-        $all_prefs = get_user_meta($user_id, self::OPTION_KEY, true);
-
-        if (!is_array($all_prefs)) {
-            $all_prefs = [];
+        if ($user_id <= 0) {
+            return;
         }
 
-        if (!isset($all_prefs[$screen_id])) {
-            $all_prefs[$screen_id] = [];
+        // Merge against the latest snapshot and retry a few times to reduce cross-tab overwrite races.
+        $attempts_remaining = 3;
+        while ($attempts_remaining > 0) {
+            $attempts_remaining--;
+
+            $all_prefs = get_user_meta($user_id, self::OPTION_KEY, true);
+            if (!is_array($all_prefs)) {
+                $all_prefs = [];
+            }
+
+            $next_prefs = $all_prefs;
+            if (!isset($next_prefs[$screen_id]) || !is_array($next_prefs[$screen_id])) {
+                $next_prefs[$screen_id] = [];
+            }
+            $next_prefs[$screen_id][$table_key] = $data;
+
+            if ($next_prefs === $all_prefs) {
+                return;
+            }
+
+            $updated = update_user_meta($user_id, self::OPTION_KEY, $next_prefs, $all_prefs);
+            if ($updated !== false) {
+                return;
+            }
         }
-
-        $all_prefs[$screen_id][$table_key] = $data;
-
-        update_user_meta($user_id, self::OPTION_KEY, $all_prefs);
     }
 }

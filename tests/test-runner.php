@@ -85,15 +85,28 @@ if (!function_exists('get_user_meta')) {
     }
 }
 if (!function_exists('update_user_meta')) {
-    function update_user_meta($user_id, $meta_key, $meta_value)
+    function update_user_meta($user_id, $meta_key, $meta_value, $prev_value = null)
     {
-        global $tah_test_user_meta_store;
+        global $tah_test_user_meta_store, $tah_test_force_meta_conflict_once;
         if (!is_array($tah_test_user_meta_store)) {
             $tah_test_user_meta_store = [];
         }
         if (!isset($tah_test_user_meta_store[$user_id]) || !is_array($tah_test_user_meta_store[$user_id])) {
             $tah_test_user_meta_store[$user_id] = [];
         }
+        if (func_num_args() >= 4) {
+            if (is_array($tah_test_force_meta_conflict_once)
+                && !empty($tah_test_force_meta_conflict_once[$user_id][$meta_key])) {
+                unset($tah_test_force_meta_conflict_once[$user_id][$meta_key]);
+                return false;
+            }
+
+            $current = $tah_test_user_meta_store[$user_id][$meta_key] ?? '';
+            if ($current !== $prev_value) {
+                return false;
+            }
+        }
+
         $tah_test_user_meta_store[$user_id][$meta_key] = $meta_value;
         return true;
     }

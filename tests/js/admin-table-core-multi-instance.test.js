@@ -3,29 +3,102 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 
-test('core contract fallback is scoped per table instance (multi-table safe)', () => {
+function loadCoreModule() {
   const corePath = path.join(__dirname, '..', '..', 'assets', 'js', 'admin-tables-core.js');
   const source = fs.readFileSync(corePath, 'utf8');
+  const sandbox = {
+    window: { TAHAdminTables: {} },
+    document: {},
+    console
+  };
 
-  assert.ok(
-    /refreshManagedTables:\s*function\s*\(tableOrContainer,\s*options\)/.test(source),
-    'Expected shared managed-table refresh path for lifecycle events'
-  );
-  assert.ok(
-    /validateReorderContract\s*&&\s*runtime\.allowReorder\s*&&\s*!self\.validateTableContract\(\$table,\s*tableKey,\s*runtime\)[\s\S]*self\.disableReorderForTable\(\$table\)/.test(source),
-    'Expected per-instance reorder fallback in shared refresh path'
-  );
-  assert.ok(
-    /disableReorderForTable:\s*function \(\$table\)/.test(source),
-    'Expected disableReorderForTable to accept current table instance'
-  );
-  assert.ok(
-    /\$table\.data\('tah-reorder-disabled', true\)/.test(source),
-    'Expected per-table reorder disabled marker'
-  );
-  assert.ok(
-    !/disableReorderForTable:\s*function \(\$table\)[\s\S]*\$\('table/.test(source),
-    'disableReorderForTable must not query/disable all tables globally'
-  );
+  sandbox.jQuery = function jQuery(target) {
+    if (target === sandbox.document) {
+      return {
+        on() { return this; },
+        ready() { return this; }
+      };
+    }
+    return target;
+  };
+  sandbox.jQuery.extend = function extend(target) {
+    const output = Object.assign({}, target || {});
+    for (let index = 1; index < arguments.length; index += 1) {
+      Object.assign(output, arguments[index] || {});
+    }
+    return output;
+  };
+
+  vm.runInNewContext(source, sandbox, { filename: corePath });
+  return sandbox.window.TAHAdminTables.Core;
+}
+
+function createFakeTable(name) {
+  const dataStore = {
+    name
+  };
+  return {
+    attr(key) {
+      if (key === 'data-tah-table') {
+        return name;
+      }
+      return '';
+    },
+    data(key, value) {
+      if (arguments.length === 2) {
+        dataStore[key] = value;
+        return this;
+      }
+      return dataStore[key];
+    }
+  };
+}
+
+function createCollection(tables) {
+  return {
+    each(callback) {
+      tables.forEach((table, index) => callback.call(table, index, table));
+    }
+  };
+}
+
+test('core refresh fallback disables reorder only for invalid table instance', () => {
+  const core = loadCoreModule();
+  const firstTable = createFakeTable('table_a');
+  const secondTable = createFakeTable('table_b');
+  const disabled = [];
+
+  core.modules = {
+    interaction: {
+      syncColumnVisibility() {},
+      normalizeVisibleColumnWidths() {}
+    }
+  };
+  core.scanAndInit = function scanAndInit() {};
+  core.resolveManagedTablesFromPayload = function resolveManagedTablesFromPayload() {
+    return createCollection([firstTable, secondTable]);
+  };
+  core.getTableRuntime = function getTableRuntime() {
+    return { allowReorder: true };
+  };
+  core.applyColumnState = function applyColumnState() {};
+  core.pruneOrphanControls = function pruneOrphanControls() {};
+  core.validateTableContract = function validateTableContract(table) {
+    return table !== firstTable;
+  };
+  core.disableReorderForTable = function disableReorderForTable(table) {
+    disabled.push(table);
+    table.data('tah-reorder-disabled', true);
+  };
+
+  core.refreshManagedTables(null, {
+    validateReorderContract: true,
+    normalizeWidths: false
+  });
+
+  assert.deepStrictEqual(disabled, [firstTable]);
+  assert.strictEqual(firstTable.data('tah-reorder-disabled'), true);
+  assert.strictEqual(secondTable.data('tah-reorder-disabled'), undefined);
 });

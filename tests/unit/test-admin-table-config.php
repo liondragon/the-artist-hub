@@ -192,6 +192,37 @@ function test_admin_table_config_width_sanitization_fails_closed_without_allowed
     Assert::same([], $clean, 'Sanitize widths should fail closed when no allowed columns are defined');
 }
 
+function test_admin_table_config_update_user_pref_retries_after_compare_and_swap_conflict()
+{
+    global $tah_test_user_meta_store, $tah_test_force_meta_conflict_once;
+    $tah_test_user_meta_store = [
+        1 => [
+            TAH_Admin_Table_Config::OPTION_KEY => [],
+        ],
+    ];
+    $tah_test_force_meta_conflict_once = [
+        1 => [
+            TAH_Admin_Table_Config::OPTION_KEY => true,
+        ],
+    ];
+
+    $config = new TAH_Admin_Table_Config();
+    tah_invoke_private_method($config, 'update_user_pref', [
+        'tah-quote-editor',
+        'pricing_editor:standard',
+        [
+            'v' => TAH_Admin_Table_Config::PREF_SCHEMA_VERSION,
+            'widths' => ['item' => 120],
+            'order' => ['item'],
+            'updated' => 1700000010,
+        ],
+    ]);
+
+    $saved = $tah_test_user_meta_store[1][TAH_Admin_Table_Config::OPTION_KEY]['tah-quote-editor']['pricing_editor:standard'] ?? null;
+    Assert::true(is_array($saved), 'Update should succeed after one simulated compare-and-swap conflict');
+    Assert::same(120, $saved['widths']['item'], 'Saved widths should persist after retry');
+}
+
 function test_admin_table_config_exposes_client_runtime_constants()
 {
     $constants = TAH_Admin_Table_Config::get_client_runtime_constants();
@@ -209,4 +240,5 @@ test_admin_table_config_clamps_base_width_to_bounds();
 test_admin_table_config_sanitizes_order_with_fixed_columns();
 test_admin_table_config_reads_only_versioned_prefs();
 test_admin_table_config_width_sanitization_fails_closed_without_allowed_columns();
+test_admin_table_config_update_user_pref_retries_after_compare_and_swap_conflict();
 test_admin_table_config_exposes_client_runtime_constants();

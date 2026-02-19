@@ -114,14 +114,17 @@ final class TAH_Admin_Table_Columns_Module
             'tah-admin-tables-constants' => [
                 'file' => 'admin-tables-constants.js',
                 'deps' => [],
+                'required' => true,
             ],
             'tah-admin-tables-store' => [
                 'file' => 'admin-tables-store.js',
                 'deps' => ['jquery', 'tah-admin-tables-constants'],
+                'required' => true,
             ],
             'tah-admin-tables-interaction' => [
                 'file' => 'admin-tables-interaction.js',
                 'deps' => ['jquery', 'jquery-ui-sortable', 'tah-admin-tables-constants'],
+                'required' => true,
             ],
             'tah-admin-tables' => [
                 'file' => 'admin-tables-core.js',
@@ -131,15 +134,18 @@ final class TAH_Admin_Table_Columns_Module
                     'tah-admin-tables-store',
                     'tah-admin-tables-interaction',
                 ],
+                'required' => true,
             ],
         ];
         $registered = [];
-        $missing_files = [];
+        $missing_required_files = [];
 
         foreach ($scripts as $handle => $script) {
             $path = $base_dir . $script['file'];
             if (!file_exists($path)) {
-                $missing_files[] = $script['file'];
+                if (!empty($script['required'])) {
+                    $missing_required_files[] = $script['file'];
+                }
                 continue;
             }
 
@@ -153,13 +159,9 @@ final class TAH_Admin_Table_Columns_Module
             $registered[$handle] = true;
         }
 
-        if (empty($registered['tah-admin-tables'])) {
-            self::log_boot_issue('Missing required runtime script: admin-tables-core.js');
+        if (!empty($missing_required_files)) {
+            self::log_boot_issue('Missing required admin table scripts: ' . implode(', ', $missing_required_files));
             return;
-        }
-
-        if (!empty($missing_files)) {
-            self::log_boot_issue('Optional admin table scripts missing: ' . implode(', ', $missing_files));
         }
 
         if (!empty($registered['tah-admin-tables-constants'])) {

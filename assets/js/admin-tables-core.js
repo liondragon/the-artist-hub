@@ -310,7 +310,7 @@
 
             // 2. Normalize Columns & Inject ColGroup
             var columns = this.modules.interaction.parseColumns($table);
-            this.modules.interaction.setupColGroup($table, columns, safeSavedWidths, tableConfig);
+            this.modules.interaction.setupColGroup($table, columns, safeSavedWidths);
 
             // 3. Apply Reordering (if prefs exist)
             if (runtime.allowReorder && prefs.order) {
@@ -491,7 +491,7 @@
         resetTableWidths: function ($table) {
             var tableConfig = $table.data('tah-table-config') || {};
             var columns = this.modules.interaction.parseColumns($table);
-            this.modules.interaction.setupColGroup($table, columns, {}, tableConfig);
+            this.modules.interaction.setupColGroup($table, columns, {});
             this.modules.interaction.syncColumnVisibility($table);
             this.modules.interaction.normalizeVisibleColumnWidths($table, tableConfig);
             this.modules.interaction.syncColumnVisibility($table);
@@ -567,23 +567,18 @@
 
         validateTableContract: function ($table, tableKey, runtime) {
             var self = this;
-            var $headerCells = $table.find('thead th');
-            if (!$headerCells.length) {
-                this.reportContractIssue($table, tableKey, 'missing header cells');
+            var $managedHeaderCells = $table.find('thead th[data-tah-col]');
+            if (!$managedHeaderCells.length) {
+                this.reportContractIssue($table, tableKey, 'missing managed header cells (data-tah-col)');
                 return false;
             }
 
             var headerKeys = [];
             var headerKeyMap = {};
-            var missingHeaderKey = false;
             var duplicateHeaderKey = '';
 
-            $headerCells.each(function () {
+            $managedHeaderCells.each(function () {
                 var key = $(this).attr('data-tah-col');
-                if (!key) {
-                    missingHeaderKey = true;
-                    return;
-                }
                 if (headerKeyMap[key]) {
                     duplicateHeaderKey = key;
                     return;
@@ -591,11 +586,6 @@
                 headerKeyMap[key] = true;
                 headerKeys.push(key);
             });
-
-            if (missingHeaderKey) {
-                this.reportContractIssue($table, tableKey, 'every header cell must declare data-tah-col');
-                return false;
-            }
 
             if (duplicateHeaderKey) {
                 this.reportContractIssue($table, tableKey, 'duplicate header key "' + duplicateHeaderKey + '"');
@@ -620,15 +610,16 @@
                 var rowKeyMap = {};
                 var rowKeyCount = 0;
                 var duplicateRowKey = '';
+                var unknownRowKey = '';
 
-                $cells.each(function () {
+                $row.children('td[data-tah-col]').each(function () {
                     var key = $(this).attr('data-tah-col');
-                    if (!key) {
-                        return;
-                    }
-
                     if (rowKeyMap[key]) {
                         duplicateRowKey = key;
+                        return;
+                    }
+                    if (!headerKeyMap[key]) {
+                        unknownRowKey = key;
                         return;
                     }
 
@@ -641,13 +632,13 @@
                     return false;
                 }
 
-                if (rowKeyCount === 0) {
-                    return;
+                if (unknownRowKey !== '') {
+                    invalidMessage = 'row ' + rowIndex + ' has unknown cell key "' + unknownRowKey + '"';
+                    return false;
                 }
 
-                if (rowKeyCount !== headerKeys.length) {
-                    invalidMessage = 'row ' + rowIndex + ' has ' + rowKeyCount + ' keyed cells, expected ' + headerKeys.length;
-                    return false;
+                if (rowKeyCount === 0) {
+                    return;
                 }
 
                 var hasAllKeys = true;
