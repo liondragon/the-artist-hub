@@ -492,7 +492,6 @@
             var tableConfig = $table.data('tah-table-config') || {};
             var columns = this.modules.interaction.parseColumns($table);
             this.modules.interaction.setupColGroup($table, columns, {});
-            this.modules.interaction.syncColumnVisibility($table);
             this.modules.interaction.normalizeVisibleColumnWidths($table, tableConfig);
             this.modules.interaction.syncColumnVisibility($table);
         },
@@ -514,29 +513,28 @@
             var tableKey = '';
             var variant = '';
             var $tables = $();
+            var isGlobalQuoteReset = $button.is('#tah-reset-table-layout');
 
             if ($controls.length) {
                 contextKey = String($controls.attr('data-tah-pref-context-key') || '');
                 tableKey = String($controls.attr('data-tah-table-key') || '');
                 variant = this.normalizeVariantKey(String($controls.attr('data-tah-variant') || ''));
                 $tables = this.getInitializedTablesByContextKey(contextKey);
-            } else {
+            } else if (isGlobalQuoteReset) {
                 var $scope = $button.closest('#tah-quote-pricing');
                 if (!$scope.length) {
-                    $scope = $button.closest('.postbox, .wrap, body');
-                }
-                var $table = $scope.find('table.tah-enhanced-table[data-tah-table]').first();
-                if (!$table.length) {
-                    $table = $('table.tah-enhanced-table[data-tah-table]').first();
-                }
-                if (!$table.length) {
                     return;
                 }
 
-                contextKey = String($table.data('tah-pref-context-key') || '');
-                tableKey = String($table.attr('data-tah-table') || '');
-                variant = this.normalizeVariantKey(String($table.attr('data-tah-variant') || ''));
-                $tables = contextKey ? this.getInitializedTablesByContextKey(contextKey) : $table;
+                $tables = $scope.find('table.tah-enhanced-table[data-tah-table]');
+                if (!$tables.length) {
+                    return;
+                }
+
+                tableKey = String($tables.first().attr('data-tah-table') || '');
+                variant = this.normalizeVariantKey(String($tables.first().attr('data-tah-variant') || ''));
+            } else {
+                return;
             }
 
             if (!$tables.length) {
