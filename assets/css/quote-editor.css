@@ -121,6 +121,17 @@ body.tah-quote-editor-enabled #wp-content-editor-tools {
     bottom: auto !important;
 }
 
+/* TinyMCE status bar must scroll with document, not pin to viewport. */
+body.tah-quote-editor-enabled .mce-statusbar.mce-container.mce-panel,
+body.tah-quote-editor-enabled .mce-statusbar {
+    position: static !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: auto !important;
+    width: auto !important;
+    z-index: auto !important;
+}
+
 /* Ensure WP's default #screen-meta styles don't override our relative positioning */
 /* Also reset WP specific margins inside screen-meta if needed */
 
