@@ -9,10 +9,16 @@ test('quote pricing emits a single table lifecycle event when adding a new group
     'utf8'
   );
 
-  const hasSingleAddEvent = /#tah-add-group[\s\S]*trigger\('tah:table_added'/.test(source)
-    && !/#tah-add-group[\s\S]*trigger\('tah:table_row_added',\s*\[\$group\.find\('table'\)\]\)/.test(source);
+  const addGroupIndex = source.indexOf("$('#tah-add-group').on('click'");
+  if (addGroupIndex < 0) {
+    throw new Error('Expected #tah-add-group click handler');
+  }
 
-  if (!hasSingleAddEvent) {
+  const addGroupBlock = source.slice(addGroupIndex, addGroupIndex + 2500);
+  const emitsTableAdded = addGroupBlock.includes("trigger('tah:table_added'");
+  const emitsRowAddedForGroupTable = addGroupBlock.includes("trigger('tah:table_row_added', [$group.find('table')])");
+
+  if (!emitsTableAdded || emitsRowAddedForGroupTable) {
     throw new Error('Expected add-group path to emit only tah:table_added for new tables');
   }
 });

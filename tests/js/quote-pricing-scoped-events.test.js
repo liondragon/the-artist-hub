@@ -9,23 +9,23 @@ test('quote pricing emits scoped table payloads for layout and row events', () =
   const source = fs.readFileSync(filePath, 'utf8');
 
   assert.ok(
-    !/trigger\('tah:table_layout_changed'\);/.test(source),
+    !source.includes("trigger('tah:table_layout_changed');"),
     'Found unscoped tah:table_layout_changed trigger'
   );
   assert.ok(
-    !/trigger\('tah:table_row_added'\);/.test(source),
+    !source.includes("trigger('tah:table_row_added');"),
     'Found unscoped tah:table_row_added trigger'
   );
   assert.ok(
-    !/pricingColumnOrder/.test(source),
+    !source.includes('pricingColumnOrder'),
     'Unexpected pricingColumnOrder fallback seam still present'
   );
   assert.ok(
-    !/tahAdminTablesConfig/.test(source),
+    !source.includes('tahAdminTablesConfig'),
     'Quote pricing should not fall back to localized admin-table config for column order'
   );
   assert.ok(
-    !/postbox-toggled/.test(source),
+    !source.includes('postbox-toggled'),
     'Quote pricing should not own postbox layout sync; core module owns it'
   );
 });

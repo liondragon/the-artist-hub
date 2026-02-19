@@ -17,13 +17,13 @@ test('admin table module no longer enqueues width-math as a runtime dependency',
   );
   const source = fs.readFileSync(modulePath, 'utf8');
 
-  assert.ok(!/tah-admin-tables-width-math/.test(source), 'width-math script should not be registered/enqueued');
+  assert.ok(!source.includes('tah-admin-tables-width-math'), 'width-math script should not be registered/enqueued');
   assert.ok(
-    /'tah-admin-tables-interaction'\s*=>\s*\[[\s\S]*'deps'\s*=>\s*\['jquery', 'jquery-ui-sortable', 'tah-admin-tables-constants'\]/.test(source),
+    source.includes("'deps' => ['jquery', 'jquery-ui-sortable', 'tah-admin-tables-constants']"),
     'Interaction runtime deps should be limited to jquery, jquery-ui-sortable, and constants'
   );
   assert.ok(
-    /TAHAdminTablesRuntimeConstants/.test(source) && /get_client_runtime_constants/.test(source),
+    source.includes('window.TAHAdminTablesRuntimeConstants') && source.includes('get_client_runtime_constants'),
     'Module should inject server-owned runtime constants before constants module'
   );
 });
@@ -38,11 +38,37 @@ test('interaction caps derived max column width by fallback hard cap', () => {
     'admin-tables-interaction.js'
   );
   const source = fs.readFileSync(interactionPath, 'utf8');
+  const sandbox = {
+    window: {
+      TAHAdminTables: {
+        Constants: {
+          widths: {
+            savedSanity: { minFactor: 0.7, maxFactor: 1.02 },
+            saveBounds: { maxFactor: 3, maxFloorPx: 480, fallbackMaxPx: 3000 },
+            minPx: 40,
+            normalizeEpsilonPx: 2
+          },
+          sort: {
+            dragDistancePx: 5,
+            dragOpacity: 0.9,
+            helperZIndex: 9999
+          }
+        }
+      }
+    },
+    document: {},
+    console
+  };
+  sandbox.jQuery = function jQuery() {
+    return {};
+  };
 
-  assert.ok(
-    /getDefaultColumnMaxWidthPx[\s\S]*?hardCap[\s\S]*?Math\.min\(derivedMax, hardCap\)/.test(source),
-    'Expected interaction max-width derivation to cap against fallbackMaxPx'
-  );
+  vm.runInNewContext(source, sandbox, { filename: interactionPath });
+  const interaction = sandbox.window.TAHAdminTables.Interaction;
+  interaction.getStableContainerWidth = () => 2000;
+
+  const resolvedMax = interaction.getDefaultColumnMaxWidthPx({});
+  assert.strictEqual(resolvedMax, 3000);
 });
 
 test('constants module prefers localized runtime width bounds when provided', () => {
@@ -55,14 +81,34 @@ test('constants module prefers localized runtime width bounds when provided', ()
     'admin-tables-constants.js'
   );
   const source = fs.readFileSync(constantsPath, 'utf8');
+  const sandbox = {
+    window: {
+      TAHAdminTables: {},
+      TAHAdminTablesRuntimeConstants: {
+        widths: {
+          minPx: 44,
+          normalizeEpsilonPx: 3,
+          saveBounds: {
+            maxFloorPx: 512,
+            maxFactor: 4,
+            fallbackMaxPx: 4096
+          },
+          savedSanity: {
+            minFactor: 0.8,
+            maxFactor: 1.1
+          }
+        }
+      }
+    },
+    console
+  };
 
-  assert.ok(
-    /TAHAdminTablesRuntimeConstants/.test(source)
-    && /runtimeWidths/.test(source)
-    && /hasRuntimeWidths/.test(source)
-    && /Missing runtime constants for width bounds/.test(source),
-    'Expected constants module to consume localized runtime width bounds'
-  );
+  vm.runInNewContext(source, sandbox, { filename: constantsPath });
+  const constants = sandbox.window.TAHAdminTables.Constants;
+  assert.strictEqual(constants.widths.minPx, 44);
+  assert.strictEqual(constants.widths.normalizeEpsilonPx, 3);
+  assert.strictEqual(constants.widths.saveBounds.fallbackMaxPx, 4096);
+  assert.strictEqual(constants.widths.savedSanity.maxFactor, 1.1);
 });
 
 test('constants module fails closed when runtime constants are missing', () => {
