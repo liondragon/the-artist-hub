@@ -264,12 +264,12 @@ jQuery(function ($) {
     }
 
     if (!isQuoteEditor) {
-        var $wpBodyContent = $('#wpbody-content');
-        if ($wpBodyContent.length) {
+        var $wpFooter = $('#wpfooter');
+        if ($wpFooter.length) {
             var $globalFooter = $('#tah-global-screen-options-footer');
             if (!$globalFooter.length) {
                 $globalFooter = $('<div id="tah-global-screen-options-footer" class="tah-screen-options-footer"></div>');
-                $wpBodyContent.append($globalFooter);
+                $wpFooter.before($globalFooter);
             }
             $footer = $globalFooter;
         }
