@@ -43,7 +43,8 @@
 .post-new-php .tah-screen-options-footer {
     margin-top: 16px;
     padding-top: 8px;
-    border-top: none
+    border-top: none;
+    clear: both;
 }
 
 .post-php .tah-screen-options-footer #screen-meta-links,
@@ -54,6 +55,8 @@
 .post-php .tah-screen-options-footer #screen-meta-links .screen-meta-toggle,
 .post-new-php .tah-screen-options-footer #screen-meta-links .screen-meta-toggle {
     margin: 0 8px 0 0;
+    float: none;
+    display: inline-block;
 }
 
 .post-php .tah-screen-options-footer #screen-meta,
